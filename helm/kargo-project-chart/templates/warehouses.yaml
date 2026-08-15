@@ -17,8 +17,8 @@
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Warehouse
 metadata:
-  name: {{ include "kargo-project.warehouseName" (dict "base" $wh.name "channel" $channel "channels" $channels) }}
-  namespace: {{ include "kargo-project.namespace" $ }}
+  name: {{ include "kargo-project-chart.warehouseName" (dict "base" $wh.name "channel" $channel "channels" $channels) }}
+  namespace: {{ include "kargo-project-chart.namespace" $ }}
 spec:
   freightCreationPolicy: Automatic
   interval: {{ $wh.interval | default "5m0s" }}
@@ -28,7 +28,7 @@ spec:
            exclusive rather than merged. */}}
     {{- $allowTagsRegex := $wh.allowTagsRegex }}
     {{- if $channel }}{{- $allowTagsRegex = $chanDef.image }}{{- end }}
-    {{- range fromJsonArray (include "kargo-project.selectSources" (dict "selector" $wh.services "all" $.Values.services)) }}
+    {{- range fromJsonArray (include "kargo-project-chart.selectSources" (dict "selector" $wh.services "all" $.Values.services)) }}
     - image:
         repoURL: {{ .image.repoURL }}
         imageSelectionStrategy: {{ .image.imageSelectionStrategy | default "NewestBuild" }}
@@ -41,7 +41,7 @@ spec:
         allowTags: {{ $allowTagsRegex | quote }}
         {{- end }}
     {{- end }}
-    {{- range fromJsonArray (include "kargo-project.selectSources" (dict "selector" $wh.charts "all" $.Values.charts)) }}
+    {{- range fromJsonArray (include "kargo-project-chart.selectSources" (dict "selector" $wh.charts "all" $.Values.charts)) }}
     - chart:
         repoURL: {{ .chart.repoURL }}
         {{- if .chart.name }}
@@ -58,7 +58,7 @@ spec:
         {{- end }}
         discoveryLimit: {{ .chart.discoveryLimit | default $discoveryLimit }}
     {{- end }}
-    {{- range fromJsonArray (include "kargo-project.selectSources" (dict "selector" $wh.gitRepos "all" $.Values.gitRepos)) }}
+    {{- range fromJsonArray (include "kargo-project-chart.selectSources" (dict "selector" $wh.gitRepos "all" $.Values.gitRepos)) }}
     - git:
         repoURL: {{ .git.repoURL }}
         commitSelectionStrategy: {{ .git.commitSelectionStrategy | default "SemVer" }}

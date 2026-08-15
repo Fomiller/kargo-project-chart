@@ -5,7 +5,7 @@ that look fine and misbehave in the cluster.
 
 Renders nothing.
 */}}
-{{- define "kargo-project.validate" -}}
+{{- define "kargo-project-chart.validate" -}}
 {{- $channels := .Values.channels | default dict -}}
 
 {{- /* Source names key the `updates[].source` lookup, so a name reused across

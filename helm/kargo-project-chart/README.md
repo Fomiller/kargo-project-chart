@@ -1,4 +1,4 @@
-# kargo-project
+# kargo-project-chart
 
 Creates a Kargo Project, its Warehouses, its Stages, and project RBAC.
 

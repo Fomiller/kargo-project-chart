@@ -1,5 +1,5 @@
 ---
-# Source: kargo-project/templates/namespace.yaml
+# Source: kargo-project-chart/templates/namespace.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -10,13 +10,13 @@ metadata:
     argocd.argoproj.io/sync-wave: "-1"
 
 ---
-# Source: kargo-project/templates/project.yaml
+# Source: kargo-project-chart/templates/project.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Project
 metadata:
   name: sprocket
 ---
-# Source: kargo-project/templates/project.yaml
+# Source: kargo-project-chart/templates/project.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: ProjectConfig
 metadata:
@@ -26,7 +26,7 @@ spec:
   promotionPolicies:
 
 ---
-# Source: kargo-project/templates/stages.yaml
+# Source: kargo-project-chart/templates/stages.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Stage
 metadata:
@@ -71,7 +71,7 @@ spec:
           config:
             path: ./repo
 ---
-# Source: kargo-project/templates/stages.yaml
+# Source: kargo-project-chart/templates/stages.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Stage
 metadata:
@@ -135,7 +135,7 @@ spec:
                   - repoURL: https://github.com/Fomiller/homelab.git
 
 ---
-# Source: kargo-project/templates/warehouses.yaml
+# Source: kargo-project-chart/templates/warehouses.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Warehouse
 metadata:

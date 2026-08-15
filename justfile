@@ -1,4 +1,4 @@
-chart := "helm/kargo-project"
+chart := "helm/kargo-project-chart"
 infraDir := "infra/live/dev"
 
 default:

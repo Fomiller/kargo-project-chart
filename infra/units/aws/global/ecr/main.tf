@@ -3,7 +3,7 @@
 # The name has to be "<prefix>/<chart name>", because `helm push` appends the
 # chart's own name to the registry path it is given. CI pushes to
 # oci://<account>.dkr.ecr.<region>.amazonaws.com/charts, so a chart named
-# kargo-project lands in charts/kargo-project. Adding a second chart to this
+# kargo-project-chart lands in charts/kargo-project-chart. Adding a second chart to this
 # repo means adding a second repository here.
 
 resource "aws_ecr_repository" "chart" {

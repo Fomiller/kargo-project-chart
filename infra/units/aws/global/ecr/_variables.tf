@@ -7,5 +7,5 @@ variable "chart_prefix" {
 variable "chart_name" {
   description = "Chart name, which is also the last path segment helm push writes to."
   type        = string
-  default     = "kargo-project"
+  default     = "kargo-project-chart"
 }

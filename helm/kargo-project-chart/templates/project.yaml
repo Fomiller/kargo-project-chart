@@ -1,14 +1,14 @@
-{{- include "kargo-project.validate" . -}}
+{{- include "kargo-project-chart.validate" . -}}
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Project
 metadata:
-  name: {{ include "kargo-project.namespace" . }}
+  name: {{ include "kargo-project-chart.namespace" . }}
 ---
 apiVersion: kargo.akuity.io/v1alpha1
 kind: ProjectConfig
 metadata:
-  name: {{ include "kargo-project.namespace" . }}
-  namespace: {{ include "kargo-project.namespace" . }}
+  name: {{ include "kargo-project-chart.namespace" . }}
+  namespace: {{ include "kargo-project-chart.namespace" . }}
 spec:
   promotionPolicies:
     {{- range .Values.stages }}

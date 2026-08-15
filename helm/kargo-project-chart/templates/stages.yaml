@@ -15,7 +15,7 @@
 {{- $originByWh := dict -}}
 {{- $origins := list -}}
 {{- range $whName := $stage.warehouses -}}
-{{- $origin := include "kargo-project.stageOrigin" (dict "root" $ "stage" $stage "warehouse" (index $whByName $whName)) -}}
+{{- $origin := include "kargo-project-chart.stageOrigin" (dict "root" $ "stage" $stage "warehouse" (index $whByName $whName)) -}}
 {{- $_ := set $originByWh $whName $origin -}}
 {{- $origins = append $origins $origin -}}
 {{- end }}
@@ -24,7 +24,7 @@ apiVersion: kargo.akuity.io/v1alpha1
 kind: Stage
 metadata:
   name: {{ $stage.name }}
-  namespace: {{ include "kargo-project.namespace" $ }}
+  namespace: {{ include "kargo-project-chart.namespace" $ }}
   {{- if $stage.color }}
   annotations:
     kargo.akuity.io/color: {{ $stage.color }}
@@ -47,15 +47,15 @@ spec:
     spec:
       vars:
         {{- range $.Values.services }}
-        - name: {{ include "kargo-project.imageVar" .name }}
+        - name: {{ include "kargo-project-chart.imageVar" .name }}
           value: {{ .image.repoURL }}
         {{- end }}
         {{- range $.Values.charts }}
-        - name: {{ include "kargo-project.chartVar" .name }}
+        - name: {{ include "kargo-project-chart.chartVar" .name }}
           value: {{ .chart.repoURL }}
         {{- end }}
         {{- range $.Values.gitRepos }}
-        - name: {{ include "kargo-project.gitVar" .name }}
+        - name: {{ include "kargo-project-chart.gitVar" .name }}
           value: {{ .git.repoURL }}
         {{- end }}
       steps:
@@ -76,7 +76,7 @@ spec:
         {{- $src := $upd.source }}
         {{- if not (hasKey $seen $src) }}
         {{- $_ := set $seen $src true }}
-        {{- $tagExpr := include "kargo-project.versionExpr" (dict "root" $ "source" $src "origin" $origin) }}
+        {{- $tagExpr := include "kargo-project-chart.versionExpr" (dict "root" $ "source" $src "origin" $origin) }}
         - uses: fail
           if: ${{ "{{" }} ctx.targetFreight.origin.name == '{{ $origin }}' && ({{ $tagExpr }} matches '{{ $prereleasePattern }}') {{ "}}" }}
           config:
@@ -117,7 +117,7 @@ spec:
             updates:
               {{- range $upd := $u.updates }}
               - key: {{ $upd.key }}
-                value: ${{ "{{" }} {{ include "kargo-project.updateExpr" (dict "root" $ "stage" $stage "source" $upd.source "origin" $origin "attribute" $upd.attribute) }} {{ "}}" }}
+                value: ${{ "{{" }} {{ include "kargo-project-chart.updateExpr" (dict "root" $ "stage" $stage "source" $upd.source "origin" $origin "attribute" $upd.attribute) }} {{ "}}" }}
               {{- end }}
         {{- end }}
         {{- end }}

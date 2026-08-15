@@ -1,5 +1,5 @@
 ---
-# Source: kargo-project/templates/namespace.yaml
+# Source: kargo-project-chart/templates/namespace.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -10,7 +10,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "-1"
 
 ---
-# Source: kargo-project/templates/roles.yaml
+# Source: kargo-project-chart/templates/roles.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -19,7 +19,7 @@ metadata:
   annotations:
     rbac.kargo.akuity.io/claims: "{\"groups\":[\"platform\"]}"
 ---
-# Source: kargo-project/templates/roles.yaml
+# Source: kargo-project-chart/templates/roles.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -28,7 +28,7 @@ metadata:
   annotations:
     rbac.kargo.akuity.io/claims: "{\"groups\":[\"platform-leads\"]}"
 ---
-# Source: kargo-project/templates/roles.yaml
+# Source: kargo-project-chart/templates/roles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -47,7 +47,7 @@ rules:
       - update
       - create
 ---
-# Source: kargo-project/templates/roles.yaml
+# Source: kargo-project-chart/templates/roles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -80,7 +80,7 @@ rules:
       - list
       - watch
 ---
-# Source: kargo-project/templates/roles.yaml
+# Source: kargo-project-chart/templates/roles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -95,7 +95,7 @@ subjects:
     name: developer
     namespace: gadget
 ---
-# Source: kargo-project/templates/roles.yaml
+# Source: kargo-project-chart/templates/roles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -110,7 +110,7 @@ subjects:
     name: developer
     namespace: gadget
 ---
-# Source: kargo-project/templates/roles.yaml
+# Source: kargo-project-chart/templates/roles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -126,13 +126,13 @@ subjects:
     namespace: gadget
 
 ---
-# Source: kargo-project/templates/project.yaml
+# Source: kargo-project-chart/templates/project.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Project
 metadata:
   name: gadget
 ---
-# Source: kargo-project/templates/project.yaml
+# Source: kargo-project-chart/templates/project.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: ProjectConfig
 metadata:
@@ -145,7 +145,7 @@ spec:
       autoPromotionEnabled: true
 
 ---
-# Source: kargo-project/templates/stages.yaml
+# Source: kargo-project-chart/templates/stages.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Stage
 metadata:
@@ -163,8 +163,8 @@ spec:
       vars:
         - name: image_gadget_api
           value: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
-        - name: chart_kargo_project
-          value: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+        - name: chart_kargo_project_chart
+          value: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
         - name: git_flake_hub
           value: https://github.com/Fomiller/flake-hub.git
       steps:
@@ -182,7 +182,7 @@ spec:
               - key: image.digest
                 value: ${{ imageFrom(vars.image_gadget_api, warehouse('app')).Digest }}
               - key: charts.kargoProject.version
-                value: ${{ chartFrom(vars.chart_kargo_project, warehouse('app')).Version }}
+                value: ${{ chartFrom(vars.chart_kargo_project_chart, warehouse('app')).Version }}
         - uses: yaml-update
           if: ${{ ctx.targetFreight.origin.name == 'app' }}
           config:
@@ -201,7 +201,7 @@ spec:
           config:
             path: ./repo
 ---
-# Source: kargo-project/templates/stages.yaml
+# Source: kargo-project-chart/templates/stages.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Stage
 metadata:
@@ -221,8 +221,8 @@ spec:
       vars:
         - name: image_gadget_api
           value: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
-        - name: chart_kargo_project
-          value: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+        - name: chart_kargo_project_chart
+          value: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
         - name: git_flake_hub
           value: https://github.com/Fomiller/flake-hub.git
       steps:
@@ -240,7 +240,7 @@ spec:
               - key: image.digest
                 value: ${{ imageFrom(vars.image_gadget_api, warehouse('app-rc')).Digest }}
               - key: charts.kargoProject.version
-                value: ${{ chartFrom(vars.chart_kargo_project, warehouse('app-rc')).Version }}
+                value: ${{ chartFrom(vars.chart_kargo_project_chart, warehouse('app-rc')).Version }}
         - uses: yaml-update
           if: ${{ ctx.targetFreight.origin.name == 'app-rc' }}
           config:
@@ -260,7 +260,7 @@ spec:
             path: ./repo
 
 ---
-# Source: kargo-project/templates/warehouses.yaml
+# Source: kargo-project-chart/templates/warehouses.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Warehouse
 metadata:
@@ -277,7 +277,7 @@ spec:
         strictSemvers: true
         allowTags: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
     - chart:
-        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
         semverConstraint: ">=0.0.0"
         discoveryLimit: 50
     - git:
@@ -286,7 +286,7 @@ spec:
         allowTags: "^v?[0-9]+\\.[0-9]+\\.[0-9]+$"
         discoveryLimit: 50
 ---
-# Source: kargo-project/templates/warehouses.yaml
+# Source: kargo-project-chart/templates/warehouses.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Warehouse
 metadata:
@@ -303,7 +303,7 @@ spec:
         strictSemvers: true
         allowTags: "^[0-9]+\\.[0-9]+\\.[0-9]+-rc[0-9]+$"
     - chart:
-        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
         semverConstraint: ">=0.0.0-0"
         discoveryLimit: 50
     - git:

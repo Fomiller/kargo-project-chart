@@ -5,7 +5,7 @@ The sync-wave puts it ahead of the Project so Argo CD can't race the adoption.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ include "kargo-project.namespace" . }}
+  name: {{ include "kargo-project-chart.namespace" . }}
   labels:
     kargo.akuity.io/project: "true"
   annotations:

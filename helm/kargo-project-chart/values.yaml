@@ -84,10 +84,10 @@ services: []
 # warehouse.
 #
 # Example:
-#   - name: kargo-project
+#   - name: kargo-project-chart
 #     chart:
 #       # For OCI registries, repoURL is the full path including the chart name.
-#       repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+#       repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
 #       # name: ""                      # classic (HTTP) Helm repos only; omit for OCI
 #       # semverConstraint: ">=0.0.0"   # optional; defaults to ">=0.0.0"
 charts: []
@@ -179,12 +179,12 @@ gitRepos: []
 # Example (chart warehouse):
 #   - name: platform-charts
 #     interval: 2m0s
-#     charts: [kargo-project]
+#     charts: [kargo-project-chart]
 #     updatePaths:
 #       - path: versions/charts.yaml
 #         rootRelative: true
 #         updates:
-#           - { key: charts.kargo-project.version, source: kargo-project }
+#           - { key: charts.kargo-project-chart.version, source: kargo-project-chart }
 warehouses: []
 
 # Stages, in promotion order — each is a small ENV BINDING. The first stage omits

@@ -23,8 +23,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  CHART_DIR: helm/kargo-project
-  CHART_NAME: kargo-project
+  CHART_DIR: helm/kargo-project-chart
+  CHART_NAME: kargo-project-chart
   CHART_PREFIX: charts
 
 jobs:

@@ -37,13 +37,13 @@ jobs:
       # actually exercises the templates.
       - name: helm lint
         run: |
-          for fixture in helm/kargo-project/tests/fixtures/*.values.yaml; do
+          for fixture in helm/kargo-project-chart/tests/fixtures/*.values.yaml; do
             echo "::group::lint $(basename "$fixture")"
-            helm lint helm/kargo-project --values "$fixture"
+            helm lint helm/kargo-project-chart --values "$fixture"
             echo "::endgroup::"
           done
 
       # Fails when a template change moves a warehouse name, an origin guard, or
       # the order of the promotion steps without the snapshot being updated.
       - name: Snapshot tests
-        run: helm/kargo-project/tests/run.sh
+        run: helm/kargo-project-chart/tests/run.sh

@@ -13,9 +13,9 @@ services:
       strictSemvers: true
 
 charts:
-  - name: kargo-project
+  - name: kargo-project-chart
     chart:
-      repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+      repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
 
 gitRepos:
   - name: flake-hub
@@ -36,7 +36,7 @@ warehouses:
       - path: values.yaml
         updates:
           - { key: image.digest, source: gadget-api }
-          - { key: charts.kargoProject.version, source: kargo-project }
+          - { key: charts.kargoProject.version, source: kargo-project-chart }
       - path: versions/${env}/pins.yaml
         rootRelative: true
         updates:

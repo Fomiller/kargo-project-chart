@@ -2,7 +2,7 @@
 The Kargo Project name, which is also its namespace. Kargo requires the two to
 match, so this is the single place either is spelled.
 */}}
-{{- define "kargo-project.namespace" -}}
+{{- define "kargo-project-chart.namespace" -}}
 {{- required "project.name is required" .Values.project.name -}}
 {{- end -}}
 
@@ -13,15 +13,15 @@ that source's URL. Hyphens become underscores so the result is referenceable as
 
   "my-service" -> "image_my_service"
 */}}
-{{- define "kargo-project.imageVar" -}}
+{{- define "kargo-project-chart.imageVar" -}}
 image_{{ . | replace "-" "_" }}
 {{- end -}}
 
-{{- define "kargo-project.chartVar" -}}
+{{- define "kargo-project-chart.chartVar" -}}
 chart_{{ . | replace "-" "_" }}
 {{- end -}}
 
-{{- define "kargo-project.gitVar" -}}
+{{- define "kargo-project-chart.gitVar" -}}
 git_{{ . | replace "-" "_" }}
 {{- end -}}
 
@@ -38,7 +38,7 @@ only ADD the non-primary ones.
 Input: dict with `base` (warehouse name), `channel` (may be ""), and `channels`
 (.Values.channels).
 */}}
-{{- define "kargo-project.warehouseName" -}}
+{{- define "kargo-project-chart.warehouseName" -}}
 {{- $chan := .channel | default "" -}}
 {{- $def := dict -}}
 {{- if hasKey .channels $chan -}}{{- $def = index .channels $chan -}}{{- end -}}
@@ -57,7 +57,7 @@ freight from an origin that does not exist.
 
 Input: dict with `root` ($), `stage`, and `warehouse` (the warehouse object).
 */}}
-{{- define "kargo-project.stageOrigin" -}}
+{{- define "kargo-project-chart.stageOrigin" -}}
 {{- $channels := .root.Values.channels | default dict -}}
 {{- $wh := .warehouse -}}
 {{- $whChannels := $wh.channels | default list -}}
@@ -81,7 +81,7 @@ Input: dict with `root` ($), `stage`, and `warehouse` (the warehouse object).
   {{- else if not (has $chan $whChannels) -}}
     {{- fail (printf "stage %q requests channel %q from warehouse %q, which only declares %v" .stage.name $chan $wh.name $whChannels) -}}
   {{- end -}}
-  {{- include "kargo-project.warehouseName" (dict "base" $wh.name "channel" $chan "channels" $channels) -}}
+  {{- include "kargo-project-chart.warehouseName" (dict "base" $wh.name "channel" $chan "channels" $channels) -}}
 {{- end -}}
 {{- end -}}
 
@@ -93,7 +93,7 @@ subscribes to none.
 Input: dict with `selector` (the warehouse's field) and `all` (the matching
 .Values list). Output: the selected subset, in .Values order.
 */}}
-{{- define "kargo-project.selectSources" -}}
+{{- define "kargo-project-chart.selectSources" -}}
 {{- $selected := list -}}
 {{- $all := .all | default list -}}
 {{- if kindIs "slice" .selector -}}
@@ -117,27 +117,27 @@ sources rather than the digest the yaml-update writes.
 Input: dict with `root` ($), `source` (name), and `origin` (rendered warehouse
 name). Output: an expression string, without the surrounding delimiters.
 */}}
-{{- define "kargo-project.versionExpr" -}}
+{{- define "kargo-project-chart.versionExpr" -}}
 {{- $src := .source -}}
 {{- $origin := .origin -}}
 {{- $found := "" -}}
 {{- range .root.Values.services -}}
   {{- if eq .name $src -}}
-    {{- $found = printf "imageFrom(vars.%s, warehouse('%s')).Tag" (include "kargo-project.imageVar" $src) $origin -}}
+    {{- $found = printf "imageFrom(vars.%s, warehouse('%s')).Tag" (include "kargo-project-chart.imageVar" $src) $origin -}}
   {{- end -}}
 {{- end -}}
 {{- range .root.Values.charts -}}
   {{- if eq .name $src -}}
     {{- if .chart.name -}}
-      {{- $found = printf "chartFrom(vars.%s, '%s', warehouse('%s')).Version" (include "kargo-project.chartVar" $src) .chart.name $origin -}}
+      {{- $found = printf "chartFrom(vars.%s, '%s', warehouse('%s')).Version" (include "kargo-project-chart.chartVar" $src) .chart.name $origin -}}
     {{- else -}}
-      {{- $found = printf "chartFrom(vars.%s, warehouse('%s')).Version" (include "kargo-project.chartVar" $src) $origin -}}
+      {{- $found = printf "chartFrom(vars.%s, warehouse('%s')).Version" (include "kargo-project-chart.chartVar" $src) $origin -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- range .root.Values.gitRepos -}}
   {{- if eq .name $src -}}
-    {{- $found = printf "commitFrom(vars.%s, warehouse('%s')).Tag" (include "kargo-project.gitVar" $src) $origin -}}
+    {{- $found = printf "commitFrom(vars.%s, warehouse('%s')).Tag" (include "kargo-project-chart.gitVar" $src) $origin -}}
   {{- end -}}
 {{- end -}}
 {{- if not $found -}}
@@ -155,7 +155,7 @@ the freight that was actually promoted.
 Input: dict with `root` ($), `source` (name), `origin` (rendered warehouse name),
 `stage`, and `attribute` (may be empty).
 */}}
-{{- define "kargo-project.updateExpr" -}}
+{{- define "kargo-project-chart.updateExpr" -}}
 {{- $src := .source -}}
 {{- $origin := .origin -}}
 {{- $attr := .attribute | default "" -}}
@@ -165,7 +165,7 @@ Input: dict with `root` ($), `source` (name), `origin` (rendered warehouse name)
     {{- if and $attr (ne $attr "Digest") -}}
       {{- fail (printf "updatePaths: image source %q sets attribute %q; image sources only support \"Digest\"" $src $attr) -}}
     {{- end -}}
-    {{- $var := include "kargo-project.imageVar" $src -}}
+    {{- $var := include "kargo-project-chart.imageVar" $src -}}
     {{- if $.stage.digestPinnedImages -}}
       {{- $found = printf "imageFrom(vars.%s, warehouse('%s')).Tag + '@' + imageFrom(vars.%s, warehouse('%s')).Digest" $var $origin $var $origin -}}
     {{- else -}}
@@ -175,7 +175,7 @@ Input: dict with `root` ($), `source` (name), `origin` (rendered warehouse name)
 {{- end -}}
 {{- range .root.Values.charts -}}
   {{- if eq .name $src -}}
-    {{- $var := include "kargo-project.chartVar" $src -}}
+    {{- $var := include "kargo-project-chart.chartVar" $src -}}
     {{- if .chart.name -}}
       {{- $found = printf "chartFrom(vars.%s, '%s', warehouse('%s')).%s" $var .chart.name $origin ($attr | default "Version") -}}
     {{- else -}}
@@ -185,7 +185,7 @@ Input: dict with `root` ($), `source` (name), `origin` (rendered warehouse name)
 {{- end -}}
 {{- range .root.Values.gitRepos -}}
   {{- if eq .name $src -}}
-    {{- $found = printf "commitFrom(vars.%s, warehouse('%s')).%s" (include "kargo-project.gitVar" $src) $origin ($attr | default "Tag") -}}
+    {{- $found = printf "commitFrom(vars.%s, warehouse('%s')).%s" (include "kargo-project-chart.gitVar" $src) $origin ($attr | default "Tag") -}}
   {{- end -}}
 {{- end -}}
 {{- if not $found -}}
