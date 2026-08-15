@@ -16,6 +16,7 @@ lint:
 
 test:
     {{chart}}/tests/run.sh
+    scripts/tests/next-version.test.sh
 
 # Rewrite the snapshots from the current templates. Read the diff before
 # committing it — that diff is the whole point of the snapshots.
