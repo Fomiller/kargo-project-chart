@@ -1,0 +1,313 @@
+---
+# Source: kargo-project/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gadget
+  labels:
+    kargo.akuity.io/project: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+
+---
+# Source: kargo-project/templates/roles.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: developer
+  namespace: gadget
+  annotations:
+    rbac.kargo.akuity.io/claims: "{\"groups\":[\"platform\"]}"
+---
+# Source: kargo-project/templates/roles.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: approver
+  namespace: gadget
+  annotations:
+    rbac.kargo.akuity.io/claims: "{\"groups\":[\"platform-leads\"]}"
+---
+# Source: kargo-project/templates/roles.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: freight-editor
+  namespace: gadget
+rules:
+  - apiGroups:
+      - kargo.akuity.io
+    resources:
+      - freights
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+      - create
+---
+# Source: kargo-project/templates/roles.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: freight-approver
+  namespace: gadget
+rules:
+  - apiGroups:
+      - kargo.akuity.io
+    resources:
+      - freights
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - kargo.akuity.io
+    resources:
+      - freights/status
+    verbs:
+      - update
+      - patch
+  - apiGroups:
+      - kargo.akuity.io
+    resources:
+      - stages
+      - promotions
+      - projects
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: kargo-project/templates/roles.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developer
+  namespace: gadget
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kargo-promoter
+subjects:
+  - kind: ServiceAccount
+    name: developer
+    namespace: gadget
+---
+# Source: kargo-project/templates/roles.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: freight-editor
+  namespace: gadget
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: freight-editor
+subjects:
+  - kind: ServiceAccount
+    name: developer
+    namespace: gadget
+---
+# Source: kargo-project/templates/roles.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: freight-approver
+  namespace: gadget
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: freight-approver
+subjects:
+  - kind: ServiceAccount
+    name: approver
+    namespace: gadget
+
+---
+# Source: kargo-project/templates/project.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Project
+metadata:
+  name: gadget
+---
+# Source: kargo-project/templates/project.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: ProjectConfig
+metadata:
+  name: gadget
+  namespace: gadget
+spec:
+  promotionPolicies:
+    - stageSelector:
+        name: dev
+      autoPromotionEnabled: true
+
+---
+# Source: kargo-project/templates/stages.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: dev
+  namespace: gadget
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: app
+      sources:
+        direct: true
+  promotionTemplate:
+    spec:
+      vars:
+        - name: image_gadget_api
+          value: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
+        - name: chart_kargo_project
+          value: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+        - name: git_flake_hub
+          value: https://github.com/Fomiller/flake-hub.git
+      steps:
+        - uses: git-clone
+          config:
+            repoURL: https://github.com/Fomiller/homelab.git
+            checkout:
+              - branch: main
+                path: ./repo
+        - uses: yaml-update
+          if: ${{ ctx.targetFreight.origin.name == 'app' }}
+          config:
+            path: ./repo/k8s/apps/gadget/overlays/dev/values.yaml
+            updates:
+              - key: image.digest
+                value: ${{ imageFrom(vars.image_gadget_api, warehouse('app')).Digest }}
+              - key: charts.kargoProject.version
+                value: ${{ chartFrom(vars.chart_kargo_project, warehouse('app')).Version }}
+        - uses: yaml-update
+          if: ${{ ctx.targetFreight.origin.name == 'app' }}
+          config:
+            path: ./repo/versions/dev/pins.yaml
+            updates:
+              - key: flakeHub.tag
+                value: ${{ commitFrom(vars.git_flake_hub, warehouse('app')).Tag }}
+              - key: flakeHub.sha
+                value: ${{ commitFrom(vars.git_flake_hub, warehouse('app')).ID }}
+        - uses: git-commit
+          as: commit
+          config:
+            path: ./repo
+            message: promote ${{ ctx.targetFreight.name }} to dev
+        - uses: git-push
+          config:
+            path: ./repo
+---
+# Source: kargo-project/templates/stages.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: dev-rc
+  namespace: gadget
+  annotations:
+    kargo.akuity.io/color: orange
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: app-rc
+      sources:
+        direct: true
+  promotionTemplate:
+    spec:
+      vars:
+        - name: image_gadget_api
+          value: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
+        - name: chart_kargo_project
+          value: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+        - name: git_flake_hub
+          value: https://github.com/Fomiller/flake-hub.git
+      steps:
+        - uses: git-clone
+          config:
+            repoURL: https://github.com/Fomiller/homelab.git
+            checkout:
+              - branch: main
+                path: ./repo
+        - uses: yaml-update
+          if: ${{ ctx.targetFreight.origin.name == 'app-rc' }}
+          config:
+            path: ./repo/k8s/apps/gadget/overlays/dev/values.yaml
+            updates:
+              - key: image.digest
+                value: ${{ imageFrom(vars.image_gadget_api, warehouse('app-rc')).Digest }}
+              - key: charts.kargoProject.version
+                value: ${{ chartFrom(vars.chart_kargo_project, warehouse('app-rc')).Version }}
+        - uses: yaml-update
+          if: ${{ ctx.targetFreight.origin.name == 'app-rc' }}
+          config:
+            path: ./repo/versions/dev/pins.yaml
+            updates:
+              - key: flakeHub.tag
+                value: ${{ commitFrom(vars.git_flake_hub, warehouse('app-rc')).Tag }}
+              - key: flakeHub.sha
+                value: ${{ commitFrom(vars.git_flake_hub, warehouse('app-rc')).ID }}
+        - uses: git-commit
+          as: commit
+          config:
+            path: ./repo
+            message: promote ${{ ctx.targetFreight.name }} to dev-rc
+        - uses: git-push
+          config:
+            path: ./repo
+
+---
+# Source: kargo-project/templates/warehouses.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: app
+  namespace: gadget
+spec:
+  freightCreationPolicy: Automatic
+  interval: 2m0s
+  subscriptions:
+    - image:
+        repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
+        imageSelectionStrategy: SemVer
+        discoveryLimit: 50
+        strictSemvers: true
+        allowTags: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    - chart:
+        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+        semverConstraint: ">=0.0.0"
+        discoveryLimit: 50
+    - git:
+        repoURL: https://github.com/Fomiller/flake-hub.git
+        commitSelectionStrategy: NewestTag
+        allowTags: "^v?[0-9]+\\.[0-9]+\\.[0-9]+$"
+        discoveryLimit: 50
+---
+# Source: kargo-project/templates/warehouses.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: app-rc
+  namespace: gadget
+spec:
+  freightCreationPolicy: Automatic
+  interval: 2m0s
+  subscriptions:
+    - image:
+        repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
+        imageSelectionStrategy: SemVer
+        discoveryLimit: 50
+        strictSemvers: true
+        allowTags: "^[0-9]+\\.[0-9]+\\.[0-9]+-rc[0-9]+$"
+    - chart:
+        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+        semverConstraint: ">=0.0.0-0"
+        discoveryLimit: 50
+    - git:
+        repoURL: https://github.com/Fomiller/flake-hub.git
+        commitSelectionStrategy: NewestTag
+        allowTags: "^v?[0-9]+\\.[0-9]+\\.[0-9]+-rc[0-9]+$"
+        discoveryLimit: 50

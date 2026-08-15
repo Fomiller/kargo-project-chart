@@ -1,0 +1,12 @@
+{{- /*
+Kargo adopts a namespace carrying this label rather than creating one itself.
+The sync-wave puts it ahead of the Project so Argo CD can't race the adoption.
+*/ -}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "kargo-project.namespace" . }}
+  labels:
+    kargo.akuity.io/project: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"

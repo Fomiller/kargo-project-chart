@@ -1,0 +1,85 @@
+{{- $channels := .Values.channels | default dict -}}
+{{- range .Values.warehouses }}
+{{- $wh := . }}
+{{- $discoveryLimit := .discoveryLimit | default 20 }}
+{{- /*
+  A warehouse renders once per channel, or once under channel "" when it declares
+  none. Each rendered Warehouse is a distinct freight ORIGIN with identical
+  subscriptions, differing only in which tags/versions it accepts. That split is
+  the only way to auto-promote release artifacts while leaving prereleases to
+  manual promotion, because Kargo's auto-promotion policy selects by stage and
+  `requestedFreight` selects by origin, never by tag.
+*/}}
+{{- range $channel := (.channels | default (list "")) }}
+{{- $chanDef := dict }}
+{{- if hasKey $channels $channel }}{{- $chanDef = index $channels $channel }}{{- end }}
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: {{ include "kargo-project.warehouseName" (dict "base" $wh.name "channel" $channel "channels" $channels) }}
+  namespace: {{ include "kargo-project.namespace" $ }}
+spec:
+  freightCreationPolicy: Automatic
+  interval: {{ $wh.interval | default "5m0s" }}
+  subscriptions:
+    {{- /* The channel's `image` pattern wins over the warehouse's `allowTagsRegex`.
+           Both are warehouse-scoped, which is why they're validated as mutually
+           exclusive rather than merged. */}}
+    {{- $allowTagsRegex := $wh.allowTagsRegex }}
+    {{- if $channel }}{{- $allowTagsRegex = $chanDef.image }}{{- end }}
+    {{- range fromJsonArray (include "kargo-project.selectSources" (dict "selector" $wh.services "all" $.Values.services)) }}
+    - image:
+        repoURL: {{ .image.repoURL }}
+        imageSelectionStrategy: {{ .image.imageSelectionStrategy | default "NewestBuild" }}
+        discoveryLimit: {{ .image.discoveryLimit | default $discoveryLimit }}
+        strictSemvers: {{ .image.strictSemvers | default false }}
+        {{- if .image.semverConstraint }}
+        semverConstraint: {{ .image.semverConstraint | quote }}
+        {{- end }}
+        {{- if $allowTagsRegex }}
+        allowTags: {{ $allowTagsRegex | quote }}
+        {{- end }}
+    {{- end }}
+    {{- range fromJsonArray (include "kargo-project.selectSources" (dict "selector" $wh.charts "all" $.Values.charts)) }}
+    - chart:
+        repoURL: {{ .chart.repoURL }}
+        {{- if .chart.name }}
+        name: {{ .chart.name }}
+        {{- end }}
+        {{- /* Charts filter by semver range, not regex, so the channel supplies a
+               constraint. It overrides the source's own, which can't be made mutually
+               exclusive the way `allowTagsRegex` is, because sources are shared across
+               warehouses. */}}
+        {{- if and $channel $chanDef.chart }}
+        semverConstraint: {{ $chanDef.chart | quote }}
+        {{- else }}
+        semverConstraint: {{ .chart.semverConstraint | default ">=0.0.0" | quote }}
+        {{- end }}
+        discoveryLimit: {{ .chart.discoveryLimit | default $discoveryLimit }}
+    {{- end }}
+    {{- range fromJsonArray (include "kargo-project.selectSources" (dict "selector" $wh.gitRepos "all" $.Values.gitRepos)) }}
+    - git:
+        repoURL: {{ .git.repoURL }}
+        commitSelectionStrategy: {{ .git.commitSelectionStrategy | default "SemVer" }}
+        {{- if .git.semverConstraint }}
+        semverConstraint: {{ .git.semverConstraint | quote }}
+        {{- end }}
+        {{- /* Same override rule as charts: the channel's `git` pattern beats the
+               source's own `allowTags`. */}}
+        {{- if and $channel $chanDef.git }}
+        allowTags: {{ $chanDef.git | quote }}
+        {{- else if .git.allowTags }}
+        allowTags: {{ .git.allowTags | quote }}
+        {{- end }}
+        {{- if .git.ignoreTags }}
+        ignoreTags:
+          {{- toYaml .git.ignoreTags | nindent 10 }}
+        {{- end }}
+        {{- if .git.branch }}
+        branch: {{ .git.branch }}
+        {{- end }}
+        discoveryLimit: {{ .git.discoveryLimit | default $discoveryLimit }}
+    {{- end }}
+{{- end }}
+{{- end }}

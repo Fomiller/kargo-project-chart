@@ -1,0 +1,9 @@
+project: { name: bad, repoURL: https://github.com/Fomiller/homelab.git }
+services:
+  - name: shared
+    image: { repoURL: example.com/shared }
+charts:
+  - name: shared
+    chart: { repoURL: oci://example.com/charts/shared }
+warehouses: []
+stages: []

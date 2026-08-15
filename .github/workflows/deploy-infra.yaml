@@ -1,0 +1,63 @@
+name: Terragrunt Deploy - Infra
+
+# The ECR repository this chart publishes to. Pull requests plan, pushes to main
+# apply. Credentials come from the shared github-actions role, whose OIDC trust
+# already covers repo:Fomiller/*:environment:dev — which is why every job here
+# runs in the `dev` environment.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/deploy-infra.yaml'
+      - 'infra/**'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/deploy-infra.yaml'
+      - 'infra/**'
+
+env:
+  TF_VERSION: 1.15.7
+  TG_VERSION: 1.1.2
+
+jobs:
+  terragrunt:
+    name: ${{ github.event_name == 'pull_request' && 'Plan' || 'Apply' }} infra (dev)
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          role-duration-seconds: 1200
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Install Terragrunt
+        run: |
+          sudo wget -q -O /bin/terragrunt \
+            "https://github.com/gruntwork-io/terragrunt/releases/download/v${TG_VERSION}/terragrunt_linux_amd64"
+          sudo chmod +x /bin/terragrunt
+
+      - name: Plan
+        if: github.event_name == 'pull_request'
+        run: |
+          terragrunt --non-interactive stack run --tf-path terraform \
+            --working-dir infra/live/dev -- plan
+
+      - name: Apply
+        if: github.event_name == 'push'
+        run: |
+          terragrunt --non-interactive stack run --tf-path terraform \
+            --working-dir infra/live/dev -- apply -auto-approve

@@ -1,0 +1,65 @@
+# One warehouse split into two freight origins by channel, with all three source
+# kinds subscribed. Pins the naming rule: the primary channel keeps the bare name
+# `app`, and rc renders as `app-rc`. The rc stage reads the second origin.
+project:
+  name: gadget
+  repoURL: https://github.com/Fomiller/homelab.git
+
+services:
+  - name: gadget-api
+    image:
+      repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
+      imageSelectionStrategy: SemVer
+      strictSemvers: true
+
+charts:
+  - name: kargo-project
+    chart:
+      repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+
+gitRepos:
+  - name: flake-hub
+    git:
+      repoURL: https://github.com/Fomiller/flake-hub.git
+      commitSelectionStrategy: NewestTag
+      allowTags: '^golden-service-'
+
+warehouses:
+  - name: app
+    interval: 2m0s
+    services: all
+    charts: all
+    gitRepos: all
+    channels: [release, rc]
+    discoveryLimit: 50
+    updatePaths:
+      - path: values.yaml
+        updates:
+          - { key: image.digest, source: gadget-api }
+          - { key: charts.kargoProject.version, source: kargo-project }
+      - path: versions/${env}/pins.yaml
+        rootRelative: true
+        updates:
+          - { key: flakeHub.tag, source: flake-hub }
+          - { key: flakeHub.sha, source: flake-hub, attribute: ID }
+
+stages:
+  - name: dev
+    autoPromotion: true
+    warehouses: [app]
+    overlayPath: k8s/apps/gadget/overlays/dev
+    env: dev
+    git: { branch: main }
+  - name: dev-rc
+    channel: rc
+    color: orange
+    warehouses: [app]
+    overlayPath: k8s/apps/gadget/overlays/dev
+    env: dev
+    git: { branch: main }
+
+rbac:
+  developerGroups:
+    - platform
+  approverGroups:
+    - platform-leads

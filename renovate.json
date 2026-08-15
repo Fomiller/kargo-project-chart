@@ -1,0 +1,21 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits"
+  ],
+  "labels": ["renovate"],
+  "github-actions": {
+    "enabled": true
+  },
+  "terraform": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "Action bumps are noise on their own; batch them into one PR.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions"
+    }
+  ]
+}

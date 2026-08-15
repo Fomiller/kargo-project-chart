@@ -1,0 +1,157 @@
+---
+# Source: kargo-project/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sprocket
+  labels:
+    kargo.akuity.io/project: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+
+---
+# Source: kargo-project/templates/project.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Project
+metadata:
+  name: sprocket
+---
+# Source: kargo-project/templates/project.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: ProjectConfig
+metadata:
+  name: sprocket
+  namespace: sprocket
+spec:
+  promotionPolicies:
+
+---
+# Source: kargo-project/templates/stages.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: dev
+  namespace: sprocket
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: app
+      sources:
+        direct: true
+  promotionTemplate:
+    spec:
+      vars:
+        - name: image_sprocket_api
+          value: 695434033664.dkr.ecr.us-east-1.amazonaws.com/sprocket-api
+        - name: image_sprocket_worker
+          value: 695434033664.dkr.ecr.us-east-1.amazonaws.com/sprocket-worker
+      steps:
+        - uses: git-clone
+          config:
+            repoURL: https://github.com/Fomiller/homelab.git
+            checkout:
+              - branch: main
+                path: ./repo
+        - uses: yaml-update
+          if: ${{ ctx.targetFreight.origin.name == 'app' }}
+          config:
+            path: ./repo/k8s/apps/sprocket/overlays/dev/values.yaml
+            updates:
+              - key: api.image.tag
+                value: ${{ imageFrom(vars.image_sprocket_api, warehouse('app')).Tag + '@' + imageFrom(vars.image_sprocket_api, warehouse('app')).Digest }}
+              - key: worker.image.tag
+                value: ${{ imageFrom(vars.image_sprocket_worker, warehouse('app')).Tag + '@' + imageFrom(vars.image_sprocket_worker, warehouse('app')).Digest }}
+        - uses: git-commit
+          as: commit
+          config:
+            path: ./repo
+            message: promote ${{ ctx.targetFreight.name }} to dev
+        - uses: git-push
+          config:
+            path: ./repo
+---
+# Source: kargo-project/templates/stages.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: prod
+  namespace: sprocket
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: app
+      sources:
+        stages:
+          - dev
+  promotionTemplate:
+    spec:
+      vars:
+        - name: image_sprocket_api
+          value: 695434033664.dkr.ecr.us-east-1.amazonaws.com/sprocket-api
+        - name: image_sprocket_worker
+          value: 695434033664.dkr.ecr.us-east-1.amazonaws.com/sprocket-worker
+      steps:
+        - uses: fail
+          if: ${{ ctx.targetFreight.origin.name == 'app' && (imageFrom(vars.image_sprocket_api, warehouse('app')).Tag matches '-(rc|alpha|beta)[.-]?[0-9]*$') }}
+          config:
+            message: ${{ 'Prerelease ' + imageFrom(vars.image_sprocket_api, warehouse('app')).Tag + ' (sprocket-api) cannot be promoted to prod, which sets blockPrerelease.' }}
+        - uses: fail
+          if: ${{ ctx.targetFreight.origin.name == 'app' && (imageFrom(vars.image_sprocket_worker, warehouse('app')).Tag matches '-(rc|alpha|beta)[.-]?[0-9]*$') }}
+          config:
+            message: ${{ 'Prerelease ' + imageFrom(vars.image_sprocket_worker, warehouse('app')).Tag + ' (sprocket-worker) cannot be promoted to prod, which sets blockPrerelease.' }}
+        - uses: git-clone
+          config:
+            repoURL: https://github.com/Fomiller/homelab.git
+            checkout:
+              - branch: main
+                path: ./repo
+        - uses: yaml-update
+          if: ${{ ctx.targetFreight.origin.name == 'app' }}
+          config:
+            path: ./repo/k8s/apps/sprocket/overlays/prod/values.yaml
+            updates:
+              - key: api.image.tag
+                value: ${{ imageFrom(vars.image_sprocket_api, warehouse('app')).Tag + '@' + imageFrom(vars.image_sprocket_api, warehouse('app')).Digest }}
+              - key: worker.image.tag
+                value: ${{ imageFrom(vars.image_sprocket_worker, warehouse('app')).Tag + '@' + imageFrom(vars.image_sprocket_worker, warehouse('app')).Digest }}
+        - uses: git-commit
+          as: commit
+          config:
+            path: ./repo
+            message: promote ${{ ctx.targetFreight.name }} to prod
+        - uses: git-push
+          config:
+            path: ./repo
+        - uses: argocd-update
+          retry:
+            timeout: 20m0s
+          config:
+            apps:
+              - name: sprocket
+                namespace: argo-system
+                sources:
+                  - repoURL: https://github.com/Fomiller/homelab.git
+
+---
+# Source: kargo-project/templates/warehouses.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: app
+  namespace: sprocket
+spec:
+  freightCreationPolicy: Automatic
+  interval: 5m0s
+  subscriptions:
+    - image:
+        repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/sprocket-api
+        imageSelectionStrategy: NewestBuild
+        discoveryLimit: 20
+        strictSemvers: false
+    - image:
+        repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/sprocket-worker
+        imageSelectionStrategy: NewestBuild
+        discoveryLimit: 20
+        strictSemvers: false

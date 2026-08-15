@@ -1,0 +1,105 @@
+name: Release Helm Chart
+
+# Merge to main cuts a stable version, tags it, and publishes it to ECR.
+# Manual dispatch off any other branch cuts a release candidate — same chart,
+# version suffixed -rc.N, no git tag moved on main.
+#
+# The version is computed, never committed. Chart.yaml holds a placeholder that
+# CI overwrites before packaging, so the repo never carries a version that
+# disagrees with what was published.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/helm-release.yaml'
+      - 'helm/**'
+      - 'scripts/next-version.sh'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CHART_DIR: helm/kargo-project
+  CHART_NAME: kargo-project
+  CHART_PREFIX: charts
+
+jobs:
+  publish:
+    name: Publish chart
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # next-version.sh reads the tag history to decide the bump.
+          fetch-depth: 0
+
+      - uses: azure/setup-helm@v4
+
+      - name: Compute version
+        id: version
+        run: |
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            version="$(scripts/next-version.sh)"
+            prerelease=false
+          else
+            version="$(scripts/next-version.sh --rc)"
+            prerelease=true
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "Publishing $version"
+
+      - name: Stamp Chart.yaml
+        run: |
+          v='${{ steps.version.outputs.version }}'
+          sed -i "s/^version: .*/version: $v/" "$CHART_DIR/Chart.yaml"
+          sed -i "s/^appVersion: .*/appVersion: $v/" "$CHART_DIR/Chart.yaml"
+
+      - name: Lint and test
+        run: |
+          for fixture in "$CHART_DIR"/tests/fixtures/*.values.yaml; do
+            helm lint "$CHART_DIR" --values "$fixture"
+          done
+          "$CHART_DIR/tests/run.sh"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          role-duration-seconds: 1200
+
+      - name: Log in to ECR
+        id: ecr
+        run: |
+          registry="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ secrets.AWS_DEFAULT_REGION }}.amazonaws.com"
+          aws ecr get-login-password --region "${{ secrets.AWS_DEFAULT_REGION }}" \
+            | helm registry login --username AWS --password-stdin "$registry"
+          echo "registry=$registry" >> "$GITHUB_OUTPUT"
+
+      - name: Package and push
+        run: |
+          helm package "$CHART_DIR" --destination dist
+          # helm push appends the chart name, so this lands at <prefix>/<chart>.
+          helm push "dist/${CHART_NAME}-${{ steps.version.outputs.version }}.tgz" \
+            "oci://${{ steps.ecr.outputs.registry }}/${CHART_PREFIX}"
+
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v='v${{ steps.version.outputs.version }}'
+          git tag "$v"
+          git push origin "$v"
+          gh release create "$v" \
+            --title "$v" \
+            --generate-notes \
+            ${{ steps.version.outputs.prerelease == 'true' && '--prerelease' || '' }}

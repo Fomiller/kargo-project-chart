@@ -1,0 +1,10 @@
+project: { name: bad, repoURL: https://github.com/Fomiller/homelab.git }
+services:
+  - name: svc
+    image: { repoURL: example.com/svc }
+warehouses:
+  - name: app
+    services: all
+    channels: [release, rc]
+    allowTagsRegex: '^v.*$'
+stages: []

@@ -1,0 +1,20 @@
+{{- include "kargo-project.validate" . -}}
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Project
+metadata:
+  name: {{ include "kargo-project.namespace" . }}
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: ProjectConfig
+metadata:
+  name: {{ include "kargo-project.namespace" . }}
+  namespace: {{ include "kargo-project.namespace" . }}
+spec:
+  promotionPolicies:
+    {{- range .Values.stages }}
+    {{- if .autoPromotion }}
+    - stageSelector:
+        name: {{ .name }}
+      autoPromotionEnabled: true
+    {{- end }}
+    {{- end }}

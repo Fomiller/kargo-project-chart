@@ -1,0 +1,40 @@
+# A stage fed by a warehouse with no channels, gated with blockPrerelease instead.
+# Pins that the gate emits one `fail` step per distinct source, before the clone,
+# and that digestPinnedImages changes what the yaml-update writes.
+project:
+  name: sprocket
+  repoURL: https://github.com/Fomiller/homelab.git
+
+prereleasePattern: '-(rc|alpha|beta)[.-]?[0-9]*$'
+
+services:
+  - name: sprocket-api
+    image:
+      repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/sprocket-api
+  - name: sprocket-worker
+    image:
+      repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/sprocket-worker
+
+warehouses:
+  - name: app
+    services: all
+    updatePaths:
+      - path: values.yaml
+        updates:
+          - { key: api.image.tag, source: sprocket-api }
+          - { key: worker.image.tag, source: sprocket-worker }
+
+stages:
+  - name: dev
+    warehouses: [app]
+    overlayPath: k8s/apps/sprocket/overlays/dev
+    digestPinnedImages: true
+    git: { branch: main }
+  - name: prod
+    upstream: dev
+    blockPrerelease: true
+    digestPinnedImages: true
+    warehouses: [app]
+    overlayPath: k8s/apps/sprocket/overlays/prod
+    git: { branch: main }
+    argocd: { appName: sprocket, namespace: argo-system }

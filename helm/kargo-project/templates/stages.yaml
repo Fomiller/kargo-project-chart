@@ -1,0 +1,145 @@
+{{- $project := .Values.project -}}
+{{- $whByName := dict -}}
+{{- range .Values.warehouses }}{{- $_ := set $whByName .name . }}{{- end -}}
+{{- $prereleasePattern := .Values.prereleasePattern | default "-(rc|alpha|beta)[.-]?[0-9]*$" -}}
+{{- range $stage := .Values.stages }}
+{{- $git := $stage.git | default dict -}}
+{{- $argocd := $stage.argocd | default dict -}}
+{{- $repoURL := $git.repoURL | default $project.repoURL -}}
+{{- /*
+  Resolve each of the stage's warehouses to the freight ORIGIN it reads: the
+  warehouse's rendered name for the channel this stage selected. Every
+  `ctx.targetFreight.origin.name` guard and `warehouse()` lookup below keys off
+  this, not the logical warehouse name.
+*/ -}}
+{{- $originByWh := dict -}}
+{{- $origins := list -}}
+{{- range $whName := $stage.warehouses -}}
+{{- $origin := include "kargo-project.stageOrigin" (dict "root" $ "stage" $stage "warehouse" (index $whByName $whName)) -}}
+{{- $_ := set $originByWh $whName $origin -}}
+{{- $origins = append $origins $origin -}}
+{{- end }}
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: {{ $stage.name }}
+  namespace: {{ include "kargo-project.namespace" $ }}
+  {{- if $stage.color }}
+  annotations:
+    kargo.akuity.io/color: {{ $stage.color }}
+  {{- end }}
+spec:
+  requestedFreight:
+    {{- range $whName := $stage.warehouses }}
+    - origin:
+        kind: Warehouse
+        name: {{ index $originByWh $whName }}
+      sources:
+        {{- if $stage.upstream }}
+        stages:
+          - {{ $stage.upstream }}
+        {{- else }}
+        direct: true
+        {{- end }}
+    {{- end }}
+  promotionTemplate:
+    spec:
+      vars:
+        {{- range $.Values.services }}
+        - name: {{ include "kargo-project.imageVar" .name }}
+          value: {{ .image.repoURL }}
+        {{- end }}
+        {{- range $.Values.charts }}
+        - name: {{ include "kargo-project.chartVar" .name }}
+          value: {{ .chart.repoURL }}
+        {{- end }}
+        {{- range $.Values.gitRepos }}
+        - name: {{ include "kargo-project.gitVar" .name }}
+          value: {{ .git.repoURL }}
+        {{- end }}
+      steps:
+        {{- /*
+          Prerelease gate. One `fail` step per distinct source this stage's warehouses
+          write, each guarded to the in-flight freight's origin. The `&&` short-circuits
+          so imageFrom/chartFrom/commitFrom is only evaluated for the matching origin,
+          which avoids a panic when that artifact isn't in the freight at all. Emitted
+          first, so a blocked promotion aborts before anything is cloned or written.
+        */}}
+        {{- if $stage.blockPrerelease }}
+        {{- range $whName := $stage.warehouses }}
+        {{- $wh := index $whByName $whName }}
+        {{- $origin := index $originByWh $whName }}
+        {{- $seen := dict }}
+        {{- range $u := ($wh.updatePaths | default list) }}
+        {{- range $upd := $u.updates }}
+        {{- $src := $upd.source }}
+        {{- if not (hasKey $seen $src) }}
+        {{- $_ := set $seen $src true }}
+        {{- $tagExpr := include "kargo-project.versionExpr" (dict "root" $ "source" $src "origin" $origin) }}
+        - uses: fail
+          if: ${{ "{{" }} ctx.targetFreight.origin.name == '{{ $origin }}' && ({{ $tagExpr }} matches '{{ $prereleasePattern }}') {{ "}}" }}
+          config:
+            message: ${{ "{{" }} 'Prerelease ' + {{ $tagExpr }} + ' ({{ $src }}) cannot be promoted to {{ $stage.name }}, which sets blockPrerelease.' {{ "}}" }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- /* Clone the stage's branch and edit it in place; git-push writes back to it. */}}
+        - uses: git-clone
+          config:
+            repoURL: {{ $repoURL }}
+            checkout:
+              - branch: {{ $git.branch }}
+                path: ./repo
+        {{- /*
+          One yaml-update per (warehouse, file). updatePaths are warehouse-scoped, which
+          is what keeps a stage a small env binding. Each step is guarded to the warehouse
+          that owns it, so only the in-flight freight's files get written.
+        */}}
+        {{- range $whName := $stage.warehouses }}
+        {{- $wh := index $whByName $whName }}
+        {{- $origin := index $originByWh $whName }}
+        {{- range $u := ($wh.updatePaths | default list) }}
+        {{- $path := "" }}
+        {{- if $u.rootRelative }}
+        {{- $path = $u.path | replace "${env}" ($stage.env | default "") }}
+        {{- else if $stage.overlayPath }}
+        {{- $path = printf "%s/%s" $stage.overlayPath $u.path }}
+        {{- else }}
+        {{- $path = $u.path }}
+        {{- end }}
+        - uses: yaml-update
+          if: ${{ "{{" }} ctx.targetFreight.origin.name == '{{ $origin }}' {{ "}}" }}
+          config:
+            path: ./repo/{{ $path }}
+            updates:
+              {{- range $upd := $u.updates }}
+              - key: {{ $upd.key }}
+                value: ${{ "{{" }} {{ include "kargo-project.updateExpr" (dict "root" $ "stage" $stage "source" $upd.source "origin" $origin "attribute" $upd.attribute) }} {{ "}}" }}
+              {{- end }}
+        {{- end }}
+        {{- end }}
+        - uses: git-commit
+          as: commit
+          config:
+            path: ./repo
+            message: promote ${{ "{{" }} ctx.targetFreight.name {{ "}}" }} to {{ $stage.name }}
+        - uses: git-push
+          config:
+            path: ./repo
+        {{- /* Only sync an Argo CD app when the stage names one. Otherwise the committed
+               change is left for Argo CD's own auto-sync to reconcile. */}}
+        {{- if $argocd.appName }}
+        - uses: argocd-update
+          retry:
+            timeout: 20m0s
+          config:
+            apps:
+              - name: {{ $argocd.appName }}
+                namespace: {{ $argocd.namespace | default "argocd" }}
+                sources:
+                  - repoURL: {{ $repoURL }}
+        {{- end }}
+{{- end }}

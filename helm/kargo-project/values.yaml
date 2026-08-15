@@ -1,0 +1,269 @@
+# Kargo project + promotion pipeline values.
+#
+# One release of this chart renders one Kargo Project plus its Warehouse(s),
+# Stage(s), and RBAC. Every value below is a placeholder — a consumer supplies
+# its own values file. See README.md for the shape of each field.
+
+project:
+  name: ""
+  # Default repo promotions commit into. A stage can override it with
+  # `stages[].git.repoURL`.
+  repoURL: ""
+
+# Release channels — named tag/version filters a warehouse can render itself under.
+#
+# Kargo can only filter artifacts at the Warehouse subscription. Auto-promotion is a
+# per-STAGE policy and `requestedFreight` selects by ORIGIN, never by tag — so
+# "auto-promote releases, hand-promote prereleases" has to be two origins, i.e. two
+# Warehouses. A warehouse listing `channels: [release, rc]` renders one Warehouse per
+# channel from a single definition, sharing one `updatePaths` block.
+#
+# Exactly one channel per warehouse may set `primary: true`. The primary channel renders
+# under the BARE warehouse name; every other channel gets a `-<channel>` suffix. That is
+# what makes adopting channels safe on a live project: renaming a warehouse renames the
+# freight origin, which orphans each stage's freight history and makes every
+# auto-promoting stage immediately promote the newest freight from the new origin.
+#
+# Each channel supplies a filter per subscription kind, because Kargo filters each kind
+# differently:
+#   image - regex, rendered as the subscription's `allowTags`.
+#   chart - semver range, rendered as `semverConstraint`. Note the `-0` in the rc range:
+#           a constraint with no prerelease part never matches a prerelease version.
+#   git   - regex, rendered as the git subscription's `allowTags`.
+#
+# A channel's filter overrides the SOURCE's own `chart.semverConstraint` / `git.allowTags`
+# (sources are shared across warehouses, so they can't be mutually exclusive with a
+# channel). It is mutually exclusive with the warehouse's own `allowTagsRegex`, which is
+# warehouse-scoped like the channel itself — setting both is an error.
+channels:
+  release:
+    primary: true
+    image: '^[0-9]+\.[0-9]+\.[0-9]+$'
+    chart: '>=0.0.0'
+    git: '^v?[0-9]+\.[0-9]+\.[0-9]+$'
+  rc:
+    image: '^[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$'
+    chart: '>=0.0.0-0'
+    git: '^v?[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$'
+
+# Regex a tag/version must match to count as a prerelease for `stages[].blockPrerelease`.
+# Evaluated by Kargo (Go regexp) through the expression language's `matches`, not by Helm.
+#
+# The default matches prerelease TOKENS rather than "contains a hyphen", because git tags
+# are often name-prefixed (`my-chart-1.2.3`) and a blanket hyphen rule would read every
+# one of them as a prerelease.
+prereleasePattern: '-(rc|alpha|beta)[.-]?[0-9]*$'
+
+# Container images this project promotes — the image freight SOURCES. An entry is a name
+# plus an image repo. WHERE a service's digest gets written lives on the warehouse
+# (`warehouses[].updatePaths`), not here.
+#
+# How Kargo picks the freight image is per-source, and all four fields are optional:
+#   imageSelectionStrategy - NewestBuild (default), SemVer, Digest, or Lexical.
+#   strictSemvers          - default false. With SemVer, require a strictly valid semver
+#                            tag. Set true when you rely on prerelease exclusion.
+#   semverConstraint       - SemVer strategy only. A range with no prerelease part (e.g.
+#                            ">=0.0.0") never matches a prerelease, which is the cheapest
+#                            way to keep `1.2.3-rc2` out of a warehouse entirely.
+#   discoveryLimit         - default 20, or the warehouse's `discoveryLimit`. Raise it if
+#                            a busy tag stream can push the newest release out of the
+#                            discovery window.
+#
+# Example:
+#   - name: my-service
+#     image:
+#       repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/my-service
+#       # imageSelectionStrategy: SemVer
+#       # strictSemvers: true
+#       # semverConstraint: ">=0.0.0"
+#       # discoveryLimit: 20
+services: []
+
+# Helm charts this project promotes — the chart-version freight SOURCES. Like `services`,
+# an entry is just the source definition; WHERE a chart's version is written lives on the
+# warehouse.
+#
+# Example:
+#   - name: kargo-project
+#     chart:
+#       # For OCI registries, repoURL is the full path including the chart name.
+#       repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project
+#       # name: ""                      # classic (HTTP) Helm repos only; omit for OCI
+#       # semverConstraint: ">=0.0.0"   # optional; defaults to ">=0.0.0"
+charts: []
+
+# Git repositories this project tracks — git freight SOURCES. Unlike services and charts
+# (runtime artifacts that get deployed), a git source is for a BUILD-TIME dependency
+# pinned by ref — e.g. a Nix flake, tagged per release — whose resolved tag you want
+# stamped into a version catalog.
+#
+# Example:
+#   - name: flake-hub
+#     git:
+#       repoURL: https://github.com/Fomiller/flake-hub.git
+#       # How Kargo picks the freight commit from this repo:
+#       #   SemVer           - newest tag parseable as semver within semverConstraint (tags
+#       #                      must be plain or `v`-prefixed semver; a name-prefixed tag
+#       #                      like `foo-1.2.3` will NOT parse — use NewestTag for those).
+#       #   NewestTag        - newest tag matching allowTags/ignoreTags.
+#       #   Lexical          - lexically-greatest matching tag.
+#       #   NewestFromBranch - newest commit on `branch`.
+#       commitSelectionStrategy: SemVer
+#       # semverConstraint: ">=0.0.0"   # SemVer strategy only
+#       # allowTags: '^golden-service-' # regex tag allow-list (tag/semver strategies)
+#       # ignoreTags: []
+#       # branch: main                  # NewestFromBranch strategy only
+gitRepos: []
+
+# Warehouses subscribe to image, chart, and/or git sources, emit freight, AND declare
+# where that freight gets written (`updatePaths`). Keeping the path mappings here rather
+# than on the stage is what keeps stage definitions small and constant as services and
+# files grow.
+#
+# Subscriptions: `services`, `charts`, and `gitRepos` each take "all" or an explicit list
+# of names. Omit a field to subscribe to none of that kind. `allowTagsRegex` filters image
+# tags (image subscriptions only; git tag filtering lives on the source's `allowTags`).
+#
+# `channels` (optional) is a list of channel names from `.Values.channels`. The warehouse
+# renders one Kargo Warehouse per channel, all sharing these subscriptions and
+# `updatePaths`, each accepting only its channel's tags/versions. Omit it and the
+# warehouse renders exactly once under its own name. Mutually exclusive with
+# `allowTagsRegex`.
+#
+# `discoveryLimit` (optional, default 20) applies to every subscription this warehouse
+# renders, unless a source overrides it.
+#
+# updatePaths: files this warehouse's freight updates. Each entry:
+#   path             - file to edit. RELATIVE to the stage's `overlayPath` by default.
+#                      Set `rootRelative: true` to make it repo-root relative; then any
+#                      `${env}` token in the path is replaced with the stage's `env`.
+#   updates[].key    - dotted YAML key to set.
+#   updates[].source - the freight source feeding that key, BY NAME. The chart resolves it
+#                      against services[] (image -> writes `.Digest`; mutable tags are not
+#                      supported), charts[] (chart -> writes `.Version`), or gitRepos[]
+#                      (git -> writes `.Tag`) automatically; you don't say which. The
+#                      source must be one this warehouse subscribes to. Names must be
+#                      unique across services[] + charts[] + gitRepos[].
+#   updates[].attribute - optional override of which attribute is written, for chart
+#                      sources (defaults to `Version`) and git sources (defaults to `Tag`;
+#                      set to `ID` to write the commit SHA). Not applicable to image
+#                      sources — those always write `.Digest`.
+#
+# Example (image warehouse, one origin — RC and release share it):
+#   - name: app
+#     interval: 5m0s
+#     services: [my-service, my-frontend]
+#     allowTagsRegex: "^[0-9]+\\.[0-9]+\\.[0-9]+(-rc[0-9]+)?$"
+#     updatePaths:
+#       - path: values.yaml                       # relative to stage.overlayPath
+#         updates:
+#           - { key: image.digest, source: my-service }
+#           - { key: frontend.image.digest, source: my-frontend }
+#       - path: k8s/apps/my-service/overlays/${env}/image.yaml
+#         rootRelative: true                      # repo-root path; ${env} <- stage.env
+#         updates:
+#           - { key: spec.imageDigest, source: my-service }
+#
+# Example (same warehouse split into two origins by channel). Renders `app` (release tags,
+# the primary channel keeping the bare name) and `app-rc` (RC tags). `allowTagsRegex` is
+# gone — the channels carry the patterns now:
+#   - name: app
+#     interval: 5m0s
+#     services: [my-service, my-frontend]
+#     channels: [release, rc]
+#     updatePaths:
+#       - path: values.yaml
+#         updates:
+#           - { key: image.digest, source: my-service }
+#
+# Example (chart warehouse):
+#   - name: platform-charts
+#     interval: 2m0s
+#     charts: [kargo-project]
+#     updatePaths:
+#       - path: versions/charts.yaml
+#         rootRelative: true
+#         updates:
+#           - { key: charts.kargo-project.version, source: kargo-project }
+warehouses: []
+
+# Stages, in promotion order — each is a small ENV BINDING. The first stage omits
+# `upstream` and pulls direct freight from its warehouses; later stages set `upstream` to
+# the previous stage. Set `autoPromotion: true` to add a matching policy in ProjectConfig.
+#
+# Fields:
+#   warehouses    - names of the warehouses feeding this stage. Drives requestedFreight
+#                   and which updatePaths run.
+#   overlayPath   - base dir for relative `updatePaths` paths (the env's overlay).
+#   env           - token substituted for `${env}` in `rootRelative` paths.
+#   git.repoURL   - repo to promote into. Defaults to project.repoURL.
+#   git.branch    - branch promotion reads AND writes.
+#   argocd.appName / argocd.namespace - Argo CD Application to sync (namespace defaults to
+#                   "argocd"). OPTIONAL: omit `argocd`, or leave appName unset, to skip the
+#                   argocd-update step and let Argo CD's own auto-sync reconcile the
+#                   committed change.
+#   color         - optional Kargo UI color annotation.
+#   channel       - optional. Which channel of its warehouses this stage reads. Omit it to
+#                   read the primary channel. Required when a stage's warehouse declares
+#                   channels but none is primary. Setting it on a stage whose warehouse
+#                   declares no channels is an error.
+#   blockPrerelease - optional bool. When true, the promotion aborts (via a `fail` step,
+#                   before anything is cloned or written) if the in-flight freight's
+#                   tag/version matches `prereleasePattern`. Prerelease freight still
+#                   promotes freely to ungated stages.
+#
+#                   The gate fires INSIDE the promotion, so an auto-promoting stage still
+#                   records a failed Promotion per prerelease freight. Channels keep that
+#                   freight out of the stage's origin in the first place and are the
+#                   quieter fix; use `blockPrerelease` as the backstop for a stage fed by a
+#                   warehouse that isn't channelized.
+#   digestPinnedImages - optional bool. Image sources write a bare `.Digest` by default
+#                   (`sha256:...`), which is what a values key like `image.digest` expects.
+#                   Set true to write `<tag>@<digest>` instead. Only do that when the
+#                   consuming chart renders the value as `repository:<value>` — writing
+#                   `<tag>@<digest>` into a key rendered as `repository@<value>` produces
+#                   an invalid reference.
+#
+# Example:
+#   - name: dev
+#     color: purple
+#     autoPromotion: true            # release channel only, so no RC auto-promotes
+#     warehouses: [app]
+#     overlayPath: k8s/apps/my-service/overlays/dev
+#     env: dev
+#     git: { repoURL: https://github.com/Fomiller/homelab.git, branch: main }
+#     argocd: { appName: my-service, namespace: argocd }
+#   - name: dev-rc                   # RC lane into the same cluster, promoted by hand
+#     channel: rc
+#     color: orange
+#     warehouses: [app]
+#     overlayPath: k8s/apps/my-service/overlays/dev
+#     env: dev
+#     git: { repoURL: https://github.com/Fomiller/homelab.git, branch: main }
+#   - name: prod
+#     blockPrerelease: true          # backstop: abort if prerelease freight reaches prod
+#     upstream: dev
+#     warehouses: [app]
+#     overlayPath: k8s/apps/my-service/overlays/prod
+#     env: prod
+#     git: { repoURL: https://github.com/Fomiller/homelab.git, branch: main }
+#
+# Both dev stages above write the same overlay file, so the dev cluster ends up on
+# whichever lane promoted last. That is usually what you want for a dev cluster. If it
+# isn't, give the RC lane its own overlayPath.
+stages: []
+
+# RBAC for the project namespace. When set, creates a `developer` ServiceAccount bound to
+# the in-cluster `kargo-promoter` Role plus a `freight-editor` Role, and optionally an
+# `approver` ServiceAccount with a `freight-approver` Role.
+#
+# `developerGroups` and `approverGroups` are group claims surfaced by whatever identity
+# provider fronts Kargo. Omit `rbac` entirely to render no RBAC objects.
+#
+# Example:
+#   rbac:
+#     developerGroups:
+#       - platform
+#     approverGroups:
+#       - platform-leads
+rbac: {}

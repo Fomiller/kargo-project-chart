@@ -1,0 +1,10 @@
+apiVersion: v2
+name: kargo-project
+description: Creates a Kargo Project, Warehouses, Stages, and RBAC for one service
+type: application
+# version/appVersion are stamped by the release workflow, which computes the next
+# semver from conventional-commit prefixes since the last git tag. Do not bump
+# these by hand — the values below only exist so `helm package` works locally, and
+# CI overwrites them before pushing to ECR.
+version: 0.1.0
+appVersion: 0.1.0

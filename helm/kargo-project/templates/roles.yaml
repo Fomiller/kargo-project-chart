@@ -1,0 +1,117 @@
+{{- if .Values.rbac }}
+{{- if .Values.rbac.developerGroups }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: developer
+  namespace: {{ include "kargo-project.namespace" $ }}
+  annotations:
+    rbac.kargo.akuity.io/claims: {{ dict "groups" .Values.rbac.developerGroups | toJson | quote }}
+---
+{{- /* kargo-promoter is a Role the Kargo control plane creates in every project
+       namespace, so this binds to it rather than defining it here. */}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developer
+  namespace: {{ include "kargo-project.namespace" $ }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kargo-promoter
+subjects:
+  - kind: ServiceAccount
+    name: developer
+    namespace: {{ include "kargo-project.namespace" $ }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: freight-editor
+  namespace: {{ include "kargo-project.namespace" $ }}
+rules:
+  - apiGroups:
+      - kargo.akuity.io
+    resources:
+      - freights
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+      - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: freight-editor
+  namespace: {{ include "kargo-project.namespace" $ }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: freight-editor
+subjects:
+  - kind: ServiceAccount
+    name: developer
+    namespace: {{ include "kargo-project.namespace" $ }}
+---
+{{- end }}
+{{- if .Values.rbac.approverGroups }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: approver
+  namespace: {{ include "kargo-project.namespace" $ }}
+  annotations:
+    rbac.kargo.akuity.io/claims: {{ dict "groups" .Values.rbac.approverGroups | toJson | quote }}
+---
+{{- /* An approver marks freight verified but never promotes it, so this Role can
+       only write freight STATUS and read everything else. */}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: freight-approver
+  namespace: {{ include "kargo-project.namespace" $ }}
+rules:
+  - apiGroups:
+      - kargo.akuity.io
+    resources:
+      - freights
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - kargo.akuity.io
+    resources:
+      - freights/status
+    verbs:
+      - update
+      - patch
+  - apiGroups:
+      - kargo.akuity.io
+    resources:
+      - stages
+      - promotions
+      - projects
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: freight-approver
+  namespace: {{ include "kargo-project.namespace" $ }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: freight-approver
+subjects:
+  - kind: ServiceAccount
+    name: approver
+    namespace: {{ include "kargo-project.namespace" $ }}
+{{- end }}
+{{- end }}

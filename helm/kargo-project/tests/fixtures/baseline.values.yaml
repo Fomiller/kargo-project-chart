@@ -1,0 +1,36 @@
+# The ordinary case: one image warehouse, no channels, dev auto-promotes and prod
+# doesn't. Covers the shape most services will actually use.
+project:
+  name: widget
+  repoURL: https://github.com/Fomiller/homelab.git
+
+services:
+  - name: widget-api
+    image:
+      repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/widget-api
+
+warehouses:
+  - name: app
+    interval: 5m0s
+    services: [widget-api]
+    allowTagsRegex: '^[0-9]+\.[0-9]+\.[0-9]+$'
+    updatePaths:
+      - path: values.yaml
+        updates:
+          - { key: image.digest, source: widget-api }
+
+stages:
+  - name: dev
+    color: purple
+    autoPromotion: true
+    warehouses: [app]
+    overlayPath: k8s/apps/widget/overlays/dev
+    env: dev
+    git: { branch: main }
+    argocd: { appName: widget }
+  - name: prod
+    upstream: dev
+    warehouses: [app]
+    overlayPath: k8s/apps/widget/overlays/prod
+    env: prod
+    git: { branch: main }
