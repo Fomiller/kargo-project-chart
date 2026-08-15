@@ -42,6 +42,8 @@ jobs:
           fetch-depth: 0
 
       - uses: azure/setup-helm@v4
+        with:
+          version: v4.2.3
 
       - name: Compute version
         id: version

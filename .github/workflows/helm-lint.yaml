@@ -29,6 +29,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: azure/setup-helm@v4
+        with:
+          version: v4.2.3
 
       # `helm lint` with the shipped values only proves the chart parses — every
       # list in values.yaml is empty by design. Linting each fixture is what

@@ -19,6 +19,11 @@ fail=0
 diffout="$(mktemp)"
 trap 'rm -f "$diffout"' EXIT
 
+# Helm patch releases have changed where they emit blank lines around document
+# separators, which broke these snapshots for no real reason. Nothing in the
+# rendered output uses a blank line meaningfully, so drop them on both sides.
+normalize() { grep -v '^[[:space:]]*$' || true; }
+
 for fixture in fixtures/*.values.yaml; do
   name="$(basename "$fixture" .values.yaml)"
   snapshot="snapshots/${name}.yaml"
@@ -37,7 +42,7 @@ for fixture in fixtures/*.values.yaml; do
     continue
   fi
 
-  if diff -u "$snapshot" <(printf '%s\n' "$rendered") > "$diffout"; then
+  if diff -u <(normalize < "$snapshot") <(printf '%s\n' "$rendered" | normalize) > "$diffout"; then
     echo "ok   $name"
   else
     echo "FAIL $name: render does not match $snapshot" >&2
