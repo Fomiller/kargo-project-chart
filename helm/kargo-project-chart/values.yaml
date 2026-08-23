@@ -20,6 +20,49 @@ project:
   #     fomiller.dev/ecr-pull: "true"
   namespaceLabels: {}
 
+# Credentials Kargo reads out of the project's namespace, one ExternalSecret
+# each. The map key names the Secret: `git` renders kargo-git-credentials.
+#
+# The chart never holds a credential, only the reference to where the cluster
+# keeps one. A project that supplies its own by hand leaves this empty.
+#
+# Kargo looks up each cred-type independently, so a git subscription and a
+# chart subscription against the same registry still need two entries.
+#
+#   credentials:
+#     git:
+#       enabled: true
+#       type: git
+#       secretStore:
+#         name: doppler-kargo-clustersecretstore
+#       # A regex, not a prefix. Kargo compares repoURL for equality unless
+#       # repoURLIsRegex is true, so a prefix matches nothing and the request
+#       # goes out unauthenticated.
+#       repoURL: '^https://github\.com/Fomiller/.*$'
+#       repoURLIsRegex: true
+#       # Rendered into the Secret. Values are Go templates over the keys
+#       # pulled by remoteKeys below.
+#       data:
+#         githubAppID: "{{ .KARGO_BOT_APP_ID }}"
+#       # secretKey: remote key in the store.
+#       remoteKeys:
+#         KARGO_BOT_APP_ID: KARGO_BOT_APP_ID
+#     image:
+#       enabled: true
+#       type: image
+#       secretStore:
+#         name: ecr-token-clustersecretstore
+#       repoURL: '^695434033664\.dkr\.ecr\.us-east-1\.amazonaws\.com/.*$'
+#       repoURLIsRegex: true
+#       data:
+#         username: "{{ .username }}"
+#         password: "{{ .password }}"
+#       # Pull every key from one entry instead of naming them.
+#       dataFrom:
+#         - extract:
+#             key: ecr-token
+credentials: {}
+
 # Release channels — named tag/version filters a warehouse can render itself under.
 #
 # Kargo can only filter artifacts at the Warehouse subscription. Auto-promotion is a
