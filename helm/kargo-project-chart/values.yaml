@@ -11,57 +11,84 @@ project:
   repoURL: ""
   # Extra labels on the project namespace, on top of the one Kargo adopts on.
   #
-  # Needed when the project shares a namespace with the workload it promotes:
+  # Needed because a project shares a namespace with the workload it promotes:
   # this chart declares that Namespace, so Argo CD's managedNamespaceMetadata
   # never applies, and anything selecting on the namespace has to be named
-  # here. A cluster-wide image pull Secret is the usual example.
+  # here. The label below is what mints the ECR pull Secret into the namespace.
   #
-  #   namespaceLabels:
-  #     fomiller.dev/ecr-pull: "true"
-  namespaceLabels: {}
+  # Cluster-wide, not per-project. A project overrides it only to add its own.
+  namespaceLabels:
+    fomiller.dev/ecr-pull: "true"
 
 # Credentials Kargo reads out of the project's namespace, one ExternalSecret
 # each. The map key names the Secret: `git` renders kargo-git-credentials.
 #
+# These are cluster facts, not project facts. Every project in this cluster
+# talks to the same GitHub account and the same registry, so they are defined
+# once here and a consumer names none of them. Override an entry only to point
+# a project somewhere else; set `enabled: false` to drop one it does not need.
+#
 # The chart never holds a credential, only the reference to where the cluster
-# keeps one. A project that supplies its own by hand leaves this empty.
+# keeps one.
 #
-# Kargo looks up each cred-type independently, so a git subscription and a
-# chart subscription against the same registry still need two entries.
-#
-#   credentials:
-#     git:
-#       enabled: true
-#       type: git
-#       secretStore:
-#         name: doppler-kargo-clustersecretstore
-#       # A regex, not a prefix. Kargo compares repoURL for equality unless
-#       # repoURLIsRegex is true, so a prefix matches nothing and the request
-#       # goes out unauthenticated.
-#       repoURL: '^https://github\.com/Fomiller/.*$'
-#       repoURLIsRegex: true
-#       # Rendered into the Secret. Values are Go templates over the keys
-#       # pulled by remoteKeys below.
-#       data:
-#         githubAppID: "{{ .KARGO_BOT_APP_ID }}"
-#       # secretKey: remote key in the store.
-#       remoteKeys:
-#         KARGO_BOT_APP_ID: KARGO_BOT_APP_ID
-#     image:
-#       enabled: true
-#       type: image
-#       secretStore:
-#         name: ecr-token-clustersecretstore
-#       repoURL: '^695434033664\.dkr\.ecr\.us-east-1\.amazonaws\.com/.*$'
-#       repoURLIsRegex: true
-#       data:
-#         username: "{{ .username }}"
-#         password: "{{ .password }}"
-#       # Pull every key from one entry instead of naming them.
-#       dataFrom:
-#         - extract:
-#             key: ecr-token
-credentials: {}
+# Two things bite. repoURL is compared for EQUALITY unless repoURLIsRegex is
+# true, so a prefix with the flag off matches nothing and the request goes out
+# unauthenticated. And Kargo looks up each cred-type independently, so the same
+# registry needs both an `image` and a `helm` entry.
+credentials:
+  # Promotions are commits. This is the identity that makes them: the
+  # fomiller-kargo-bot GitHub App, installed on the Fomiller account. An App
+  # rather than a PAT because the credential is scoped to an installation
+  # rather than a person, and Kargo mints a short-lived token per promotion.
+  git:
+    enabled: true
+    type: git
+    secretStore:
+      name: doppler-kargo-clustersecretstore
+    repoURL: '^https://github\.com/Fomiller/.*$'
+    repoURLIsRegex: true
+    # Values are Go templates over the keys pulled by remoteKeys below.
+    data:
+      githubAppID: "{{ .KARGO_BOT_APP_ID }}"
+      githubAppInstallationID: "{{ .KARGO_BOT_INSTALLATION_ID }}"
+      githubAppPrivateKey: "{{ .KARGO_BOT_PRIVATE_KEY }}"
+    # secretKey: remote key in the store.
+    remoteKeys:
+      KARGO_BOT_APP_ID: KARGO_BOT_APP_ID
+      KARGO_BOT_INSTALLATION_ID: KARGO_BOT_INSTALLATION_ID
+      KARGO_BOT_PRIVATE_KEY: KARGO_BOT_PRIVATE_KEY
+  # Kargo lists ECR tags itself; the kubelet's pull secret is not visible to
+  # it. Matched against the subscription's full repoURL, which includes the
+  # image name, so the bare registry host would not be equal to it.
+  ecr-image:
+    enabled: true
+    type: image
+    secretStore:
+      name: ecr-token-clustersecretstore
+    repoURL: '^695434033664\.dkr\.ecr\.us-east-1\.amazonaws\.com/.*$'
+    repoURLIsRegex: true
+    data:
+      username: "{{ .username }}"
+      password: "{{ .password }}"
+    # Pull every key from one entry instead of naming them.
+    dataFrom:
+      - extract:
+          key: ecr-token
+  # Same registry and same token, still a separate credential. The chart
+  # subscription keeps its oci:// scheme, so the pattern does too.
+  ecr-chart:
+    enabled: true
+    type: helm
+    secretStore:
+      name: ecr-token-clustersecretstore
+    repoURL: '^oci://695434033664\.dkr\.ecr\.us-east-1\.amazonaws\.com/.*$'
+    repoURLIsRegex: true
+    data:
+      username: "{{ .username }}"
+      password: "{{ .password }}"
+    dataFrom:
+      - extract:
+          key: ecr-token
 
 # Release channels — named tag/version filters a warehouse can render itself under.
 #
