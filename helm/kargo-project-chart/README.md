@@ -59,30 +59,33 @@ They compose. A gated stage reading only the release channel is belt and braces.
 
 Kargo reads a project's credentials from the project's own namespace, not from
 the control-plane namespace, and finds them by the `kargo.akuity.io/cred-type`
-label. Every project needs the same handful, so `credentials` renders them here
-instead of each service repo carrying its own copy.
+label.
 
-Each entry becomes one ExternalSecret named `kargo-<key>-credentials`. The
-chart never holds a credential, only the reference to where the cluster keeps
-one. Leave `credentials` empty to supply them by hand.
+**A project writes nothing about them.** Which GitHub account, which registry,
+which secret store — those are facts about the cluster, not about the service.
+They are defined once in this chart's `values.yaml` and every project gets the
+same three: `git`, `ecr-image`, `ecr-chart`. Each becomes one ExternalSecret
+named `kargo-<key>-credentials`.
+
+The chart never holds a credential, only the reference to where the cluster
+keeps one.
+
+A project overrides only when it genuinely differs. Helm merges the entry, so
+naming one field keeps the rest:
 
 ```yaml
 credentials:
+  # No chart subscription, so no helm credential.
+  ecr-chart:
+    enabled: false
+  # Git lives somewhere the cluster default does not match.
   git:
-    enabled: true
-    type: git
-    secretStore: { name: doppler-kargo-clustersecretstore }
-    repoURL: '^https://github\.com/Fomiller/.*$'
-    repoURLIsRegex: true
-    data:
-      githubAppID: "{{ .KARGO_BOT_APP_ID }}"
-    remoteKeys:
-      KARGO_BOT_APP_ID: KARGO_BOT_APP_ID
+    repoURL: '^https://git\.example\.com/widget/.*$'
 ```
 
-`data` values are Go templates over whatever the store returns. Name the keys
-with `remoteKeys` (secret key to remote key), or pull a whole entry with
-`dataFrom`.
+Inside an entry, `data` values are Go templates over whatever the store
+returns. Name the keys with `remoteKeys` (secret key to remote key), or pull a
+whole entry with `dataFrom`.
 
 Two things bite here:
 
