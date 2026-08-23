@@ -30,14 +30,18 @@ across all three source lists — the chart fails the render if they are not.
 
 | Kind | Written by default | Override |
 | --- | --- | --- |
-| image | `.Digest` | none — see below |
+| image | `<tag>@<digest>` | none — see below |
 | chart | `.Version` | `attribute` |
 | git | `.Tag` | `attribute`, e.g. `ID` for the commit SHA |
 
-Image sources write a digest, not a tag, because a mutable tag lets the cluster
-drift off the freight that was actually promoted. A stage can set
-`digestPinnedImages: true` to write `<tag>@<digest>` instead, which only makes
-sense when the consuming chart renders the value as `repository:<value>`.
+Image sources carry a digest, never a bare tag, because a mutable tag lets the
+cluster drift off the freight that was actually promoted. They carry the tag
+too, because `sha256:cff4894…` tells you nothing in `kubectl describe`.
+
+`<tag>@<digest>` belongs in a key the chart renders as `repository:<value>`. A
+stage whose chart renders `repository@<value>` sets `digestPinnedImages: false`
+to get a bare `sha256:...` back. Name the key for what it holds — `image.tag`
+when pinned, `image.digest` when bare.
 
 ## Two ways to keep prereleases out of a stage
 

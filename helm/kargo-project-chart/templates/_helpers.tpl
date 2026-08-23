@@ -166,7 +166,10 @@ Input: dict with `root` ($), `source` (name), `origin` (rendered warehouse name)
       {{- fail (printf "updatePaths: image source %q sets attribute %q; image sources only support \"Digest\"" $src $attr) -}}
     {{- end -}}
     {{- $var := include "kargo-project-chart.imageVar" $src -}}
-    {{- if $.stage.digestPinnedImages -}}
+    {{- /* `ne ... false` rather than `default true`, because Helm's `default`
+           returns its fallback for any empty value and `false` is empty — a
+           stage that deliberately opted out would silently get `true` back. */ -}}
+    {{- if ne $.stage.digestPinnedImages false -}}
       {{- $found = printf "imageFrom(vars.%s, warehouse('%s')).Tag + '@' + imageFrom(vars.%s, warehouse('%s')).Digest" $var $origin $var $origin -}}
     {{- else -}}
       {{- $found = printf "imageFrom(vars.%s, warehouse('%s')).Digest" $var $origin -}}

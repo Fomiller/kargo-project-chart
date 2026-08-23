@@ -25,19 +25,14 @@ metadata:
   namespace: widget
 spec:
   promotionPolicies:
-    - stageSelector:
-        name: dev
-      autoPromotionEnabled: true
 
 ---
 # Source: kargo-project-chart/templates/stages.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Stage
 metadata:
-  name: dev
+  name: pinned
   namespace: widget
-  annotations:
-    kargo.akuity.io/color: purple
 spec:
   requestedFreight:
     - origin:
@@ -60,34 +55,25 @@ spec:
         - uses: yaml-update
           if: ${{ ctx.targetFreight.origin.name == 'app' }}
           config:
-            path: ./repo/k8s/apps/widget/overlays/dev/values.yaml
+            path: ./repo/k8s/apps/widget/overlays/pinned/values.yaml
             updates:
-              - key: image.tag
+              - key: image.digest
                 value: ${{ imageFrom(vars.image_widget_api, warehouse('app')).Tag + '@' + imageFrom(vars.image_widget_api, warehouse('app')).Digest }}
         - uses: git-commit
           as: commit
           config:
             path: ./repo
-            message: promote ${{ ctx.targetFreight.name }} to dev
+            message: promote ${{ ctx.targetFreight.name }} to pinned
         - uses: git-push
           config:
             path: ./repo
-        - uses: argocd-update
-          retry:
-            timeout: 20m0s
-          config:
-            apps:
-              - name: widget
-                namespace: argocd
-                sources:
-                  - repoURL: https://github.com/Fomiller/homelab.git
 
 ---
 # Source: kargo-project-chart/templates/stages.yaml
 apiVersion: kargo.akuity.io/v1alpha1
 kind: Stage
 metadata:
-  name: prod
+  name: bare
   namespace: widget
 spec:
   requestedFreight:
@@ -95,8 +81,7 @@ spec:
         kind: Warehouse
         name: app
       sources:
-        stages:
-          - dev
+        direct: true
   promotionTemplate:
     spec:
       vars:
@@ -112,15 +97,15 @@ spec:
         - uses: yaml-update
           if: ${{ ctx.targetFreight.origin.name == 'app' }}
           config:
-            path: ./repo/k8s/apps/widget/overlays/prod/values.yaml
+            path: ./repo/k8s/apps/widget/overlays/bare/values.yaml
             updates:
-              - key: image.tag
-                value: ${{ imageFrom(vars.image_widget_api, warehouse('app')).Tag + '@' + imageFrom(vars.image_widget_api, warehouse('app')).Digest }}
+              - key: image.digest
+                value: ${{ imageFrom(vars.image_widget_api, warehouse('app')).Digest }}
         - uses: git-commit
           as: commit
           config:
             path: ./repo
-            message: promote ${{ ctx.targetFreight.name }} to prod
+            message: promote ${{ ctx.targetFreight.name }} to bare
         - uses: git-push
           config:
             path: ./repo
@@ -141,5 +126,3 @@ spec:
         imageSelectionStrategy: NewestBuild
         discoveryLimit: 20
         strictSemvers: false
-        allowTagsRegexes:
-          - "^[0-9]+\\.[0-9]+\\.[0-9]+$"

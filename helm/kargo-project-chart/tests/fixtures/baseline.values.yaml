@@ -17,7 +17,10 @@ warehouses:
     updatePaths:
       - path: values.yaml
         updates:
-          - { key: image.digest, source: widget-api }
+          # image.tag, not image.digest: freight now writes `<tag>@<digest>` by
+          # default, and that belongs in a key the chart renders as
+          # `repository:<value>`.
+          - { key: image.tag, source: widget-api }
 
 stages:
   - name: dev

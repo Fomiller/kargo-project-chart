@@ -1,0 +1,39 @@
+# digestPinnedImages defaults to true, so this fixture exists to prove the way
+# back out. A stage setting it to false must write a bare `sha256:...`.
+#
+# The distinction is not cosmetic: a chart that renders `repository@<value>`
+# needs the bare digest, and a `<tag>@<digest>` there is an invalid reference.
+#
+# It also guards the template idiom. `default true .x` would return true for an
+# explicit false, because Helm treats false as empty, and this fixture is what
+# catches that if anyone reaches for it.
+project:
+  name: widget
+  repoURL: https://github.com/Fomiller/homelab.git
+
+services:
+  - name: widget-api
+    image:
+      repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/widget-api
+
+warehouses:
+  - name: app
+    interval: 5m0s
+    services: [widget-api]
+    updatePaths:
+      - path: values.yaml
+        updates:
+          - { key: image.digest, source: widget-api }
+
+stages:
+  - name: pinned
+    warehouses: [app]
+    overlayPath: k8s/apps/widget/overlays/pinned
+    env: pinned
+    git: { branch: main }
+  - name: bare
+    digestPinnedImages: false
+    warehouses: [app]
+    overlayPath: k8s/apps/widget/overlays/bare
+    env: bare
+    git: { branch: main }

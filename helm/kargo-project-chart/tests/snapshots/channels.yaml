@@ -187,7 +187,7 @@ spec:
             path: ./repo/k8s/apps/gadget/overlays/dev/values.yaml
             updates:
               - key: image.digest
-                value: ${{ imageFrom(vars.image_gadget_api, warehouse('app')).Digest }}
+                value: ${{ imageFrom(vars.image_gadget_api, warehouse('app')).Tag + '@' + imageFrom(vars.image_gadget_api, warehouse('app')).Digest }}
               - key: charts.kargoProject.version
                 value: ${{ chartFrom(vars.chart_kargo_project_chart, warehouse('app')).Version }}
         - uses: yaml-update
@@ -246,7 +246,7 @@ spec:
             path: ./repo/k8s/apps/gadget/overlays/dev/values.yaml
             updates:
               - key: image.digest
-                value: ${{ imageFrom(vars.image_gadget_api, warehouse('app-rc')).Digest }}
+                value: ${{ imageFrom(vars.image_gadget_api, warehouse('app-rc')).Tag + '@' + imageFrom(vars.image_gadget_api, warehouse('app-rc')).Digest }}
               - key: charts.kargoProject.version
                 value: ${{ chartFrom(vars.chart_kargo_project_chart, warehouse('app-rc')).Version }}
         - uses: yaml-update

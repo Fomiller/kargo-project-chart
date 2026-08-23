@@ -217,12 +217,16 @@ warehouses: []
 #                   freight out of the stage's origin in the first place and are the
 #                   quieter fix; use `blockPrerelease` as the backstop for a stage fed by a
 #                   warehouse that isn't channelized.
-#   digestPinnedImages - optional bool. Image sources write a bare `.Digest` by default
-#                   (`sha256:...`), which is what a values key like `image.digest` expects.
-#                   Set true to write `<tag>@<digest>` instead. Only do that when the
-#                   consuming chart renders the value as `repository:<value>` — writing
-#                   `<tag>@<digest>` into a key rendered as `repository@<value>` produces
-#                   an invalid reference.
+#   digestPinnedImages - optional bool, DEFAULT TRUE. Image sources write
+#                   `<tag>@<digest>`: the digest makes a deploy reproducible, the tag
+#                   keeps it readable in `kubectl describe`. That belongs in a key the
+#                   consuming chart renders as `repository:<value>`, which is what the
+#                   golden-argocd chart does.
+#
+#                   Set it to false for a chart that renders `repository@<value>`, where
+#                   a bare `sha256:...` is what the key expects — a `<tag>@<digest>`
+#                   there is an invalid reference. Write it to a key named for what it
+#                   holds: `image.tag` when pinned, `image.digest` when bare.
 #
 # Example:
 #   - name: dev
