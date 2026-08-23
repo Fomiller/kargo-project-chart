@@ -15,7 +15,7 @@ services:
 charts:
   - name: kargo-project-chart
     chart:
-      repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
+      repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/kargo-project-chart
 
 gitRepos:
   - name: flake-hub

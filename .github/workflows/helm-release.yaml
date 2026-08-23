@@ -25,7 +25,6 @@ concurrency:
 env:
   CHART_DIR: helm/kargo-project-chart
   CHART_NAME: kargo-project-chart
-  CHART_PREFIX: charts
 
 jobs:
   publish:
@@ -90,9 +89,10 @@ jobs:
       - name: Package and push
         run: |
           helm package "$CHART_DIR" --destination dist
-          # helm push appends the chart name, so this lands at <prefix>/<chart>.
+          # helm push appends the chart name, so pushing to the bare registry
+          # lands this at <registry>/kargo-project-chart.
           helm push "dist/${CHART_NAME}-${{ steps.version.outputs.version }}.tgz" \
-            "oci://${{ steps.ecr.outputs.registry }}/${CHART_PREFIX}"
+            "oci://${{ steps.ecr.outputs.registry }}"
 
       - name: Tag and release
         env:

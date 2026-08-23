@@ -9,6 +9,16 @@ project:
   # Default repo promotions commit into. A stage can override it with
   # `stages[].git.repoURL`.
   repoURL: ""
+  # Extra labels on the project namespace, on top of the one Kargo adopts on.
+  #
+  # Needed when the project shares a namespace with the workload it promotes:
+  # this chart declares that Namespace, so Argo CD's managedNamespaceMetadata
+  # never applies, and anything selecting on the namespace has to be named
+  # here. A cluster-wide image pull Secret is the usual example.
+  #
+  #   namespaceLabels:
+  #     fomiller.dev/ecr-pull: "true"
+  namespaceLabels: {}
 
 # Release channels — named tag/version filters a warehouse can render itself under.
 #
@@ -87,7 +97,7 @@ services: []
 #   - name: kargo-project-chart
 #     chart:
 #       # For OCI registries, repoURL is the full path including the chart name.
-#       repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
+#       repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/kargo-project-chart
 #       # name: ""                      # classic (HTTP) Helm repos only; omit for OCI
 #       # semverConstraint: ">=0.0.0"   # optional; defaults to ">=0.0.0"
 charts: []

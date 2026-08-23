@@ -6,7 +6,7 @@ Warehouses, Stages, and RBAC. Install it once per service.
 The chart is published to ECR as an OCI artifact:
 
 ```
-oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
+oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/kargo-project-chart
 ```
 
 ## What one release renders
@@ -26,7 +26,7 @@ a consumer supplies all of them.
 
 ```sh
 helm install my-service \
-  oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart \
+  oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/kargo-project-chart \
   --version 0.1.0 \
   --values my-service.kargo.yaml
 ```

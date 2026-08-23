@@ -171,7 +171,7 @@ spec:
         - name: image_gadget_api
           value: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
         - name: chart_kargo_project_chart
-          value: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
+          value: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/kargo-project-chart
         - name: git_flake_hub
           value: https://github.com/Fomiller/flake-hub.git
       steps:
@@ -230,7 +230,7 @@ spec:
         - name: image_gadget_api
           value: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
         - name: chart_kargo_project_chart
-          value: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
+          value: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/kargo-project-chart
         - name: git_flake_hub
           value: https://github.com/Fomiller/flake-hub.git
       steps:
@@ -286,7 +286,7 @@ spec:
         allowTagsRegexes:
           - "^[0-9]+\\.[0-9]+\\.[0-9]+$"
     - chart:
-        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
+        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/kargo-project-chart
         semverConstraint: ">=0.0.0"
         discoveryLimit: 50
     - git:
@@ -315,7 +315,7 @@ spec:
         allowTagsRegexes:
           - "^[0-9]+\\.[0-9]+\\.[0-9]+-rc[0-9]+$"
     - chart:
-        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
+        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/kargo-project-chart
         semverConstraint: ">=0.0.0-0"
         discoveryLimit: 50
     - git:
