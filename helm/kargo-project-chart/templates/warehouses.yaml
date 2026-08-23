@@ -37,8 +37,13 @@ spec:
         {{- if .image.semverConstraint }}
         semverConstraint: {{ .image.semverConstraint | quote }}
         {{- end }}
+        {{- /* Kargo 1.11 made the singular `allowTags` fatal rather than merely
+               deprecated, and drops it in 1.13. The values contract stays a
+               single pattern — one per warehouse or channel is the point — so
+               the list is built here. */}}
         {{- if $allowTagsRegex }}
-        allowTags: {{ $allowTagsRegex | quote }}
+        allowTagsRegexes:
+          - {{ $allowTagsRegex | quote }}
         {{- end }}
     {{- end }}
     {{- range fromJsonArray (include "kargo-project-chart.selectSources" (dict "selector" $wh.charts "all" $.Values.charts)) }}
@@ -68,12 +73,14 @@ spec:
         {{- /* Same override rule as charts: the channel's `git` pattern beats the
                source's own `allowTags`. */}}
         {{- if and $channel $chanDef.git }}
-        allowTags: {{ $chanDef.git | quote }}
+        allowTagsRegexes:
+          - {{ $chanDef.git | quote }}
         {{- else if .git.allowTags }}
-        allowTags: {{ .git.allowTags | quote }}
+        allowTagsRegexes:
+          - {{ .git.allowTags | quote }}
         {{- end }}
         {{- if .git.ignoreTags }}
-        ignoreTags:
+        ignoreTagsRegexes:
           {{- toYaml .git.ignoreTags | nindent 10 }}
         {{- end }}
         {{- if .git.branch }}
