@@ -10,8 +10,7 @@
 # resolves to a path that does not exist.
 
 resource "aws_ecr_repository" "chart" {
-  # Still prefixed for one more apply. See chart_prefix.
-  name = "${var.chart_prefix}/${var.chart_name}"
+  name = var.chart_name
 
   # Chart versions are semver and never republished, so a re-push of an existing
   # version is a bug in the release workflow. Fail it at the registry.
