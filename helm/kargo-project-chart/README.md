@@ -55,6 +55,44 @@ a warehouse that isn't channelized.
 
 They compose. A gated stage reading only the release channel is belt and braces.
 
+## Credentials
+
+Kargo reads a project's credentials from the project's own namespace, not from
+the control-plane namespace, and finds them by the `kargo.akuity.io/cred-type`
+label. Every project needs the same handful, so `credentials` renders them here
+instead of each service repo carrying its own copy.
+
+Each entry becomes one ExternalSecret named `kargo-<key>-credentials`. The
+chart never holds a credential, only the reference to where the cluster keeps
+one. Leave `credentials` empty to supply them by hand.
+
+```yaml
+credentials:
+  git:
+    enabled: true
+    type: git
+    secretStore: { name: doppler-kargo-clustersecretstore }
+    repoURL: '^https://github\.com/Fomiller/.*$'
+    repoURLIsRegex: true
+    data:
+      githubAppID: "{{ .KARGO_BOT_APP_ID }}"
+    remoteKeys:
+      KARGO_BOT_APP_ID: KARGO_BOT_APP_ID
+```
+
+`data` values are Go templates over whatever the store returns. Name the keys
+with `remoteKeys` (secret key to remote key), or pull a whole entry with
+`dataFrom`.
+
+Two things bite here:
+
+- `repoURL` is compared for **equality** unless `repoURLIsRegex` is true. A
+  prefix with the flag off matches nothing, and the request goes out
+  unauthenticated — which surfaces as "no tags found", not as an auth error.
+- Kargo looks up each cred-type **independently**. An `image` credential does
+  not authenticate a chart subscription against the same registry; that needs a
+  second entry with `type: helm`.
+
 ## Validation
 
 The chart fails the render, rather than producing objects that look fine and
