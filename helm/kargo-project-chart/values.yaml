@@ -26,10 +26,10 @@ project:
 #
 # Each channel supplies a filter per subscription kind, because Kargo filters each kind
 # differently:
-#   image - regex, rendered as the subscription's `allowTags`.
+#   image - regex, rendered into the subscription's `allowTagsRegexes` list.
 #   chart - semver range, rendered as `semverConstraint`. Note the `-0` in the rc range:
 #           a constraint with no prerelease part never matches a prerelease version.
-#   git   - regex, rendered as the git subscription's `allowTags`.
+#   git   - regex, rendered into the git subscription's `allowTagsRegexes` list.
 #
 # A channel's filter overrides the SOURCE's own `chart.semverConstraint` / `git.allowTags`
 # (sources are shared across warehouses, so they can't be mutually exclusive with a
@@ -110,7 +110,7 @@ charts: []
 #       #   NewestFromBranch - newest commit on `branch`.
 #       commitSelectionStrategy: SemVer
 #       # semverConstraint: ">=0.0.0"   # SemVer strategy only
-#       # allowTags: '^golden-service-' # regex tag allow-list (tag/semver strategies)
+#       # allowTags: '^golden-service-' # regex allow-list; rendered as allowTagsRegexes
 #       # ignoreTags: []
 #       # branch: main                  # NewestFromBranch strategy only
 gitRepos: []

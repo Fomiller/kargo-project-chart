@@ -15,6 +15,7 @@ apiVersion: kargo.akuity.io/v1alpha1
 kind: Project
 metadata:
   name: sprocket
+
 ---
 # Source: kargo-project-chart/templates/project.yaml
 apiVersion: kargo.akuity.io/v1alpha1
@@ -70,6 +71,7 @@ spec:
         - uses: git-push
           config:
             path: ./repo
+
 ---
 # Source: kargo-project-chart/templates/stages.yaml
 apiVersion: kargo.akuity.io/v1alpha1

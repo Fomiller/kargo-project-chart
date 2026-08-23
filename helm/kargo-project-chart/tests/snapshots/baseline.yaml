@@ -15,6 +15,7 @@ apiVersion: kargo.akuity.io/v1alpha1
 kind: Project
 metadata:
   name: widget
+
 ---
 # Source: kargo-project-chart/templates/project.yaml
 apiVersion: kargo.akuity.io/v1alpha1
@@ -80,6 +81,7 @@ spec:
                 namespace: argocd
                 sources:
                   - repoURL: https://github.com/Fomiller/homelab.git
+
 ---
 # Source: kargo-project-chart/templates/stages.yaml
 apiVersion: kargo.akuity.io/v1alpha1
@@ -139,4 +141,5 @@ spec:
         imageSelectionStrategy: NewestBuild
         discoveryLimit: 20
         strictSemvers: false
-        allowTags: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        allowTagsRegexes:
+          - "^[0-9]+\\.[0-9]+\\.[0-9]+$"

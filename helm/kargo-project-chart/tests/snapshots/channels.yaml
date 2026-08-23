@@ -18,6 +18,7 @@ metadata:
   namespace: gadget
   annotations:
     rbac.kargo.akuity.io/claims: "{\"groups\":[\"platform\"]}"
+
 ---
 # Source: kargo-project-chart/templates/roles.yaml
 apiVersion: v1
@@ -27,6 +28,7 @@ metadata:
   namespace: gadget
   annotations:
     rbac.kargo.akuity.io/claims: "{\"groups\":[\"platform-leads\"]}"
+
 ---
 # Source: kargo-project-chart/templates/roles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -46,6 +48,7 @@ rules:
       - patch
       - update
       - create
+
 ---
 # Source: kargo-project-chart/templates/roles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -79,6 +82,7 @@ rules:
       - get
       - list
       - watch
+
 ---
 # Source: kargo-project-chart/templates/roles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -94,6 +98,7 @@ subjects:
   - kind: ServiceAccount
     name: developer
     namespace: gadget
+
 ---
 # Source: kargo-project-chart/templates/roles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -109,6 +114,7 @@ subjects:
   - kind: ServiceAccount
     name: developer
     namespace: gadget
+
 ---
 # Source: kargo-project-chart/templates/roles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -131,6 +137,7 @@ apiVersion: kargo.akuity.io/v1alpha1
 kind: Project
 metadata:
   name: gadget
+
 ---
 # Source: kargo-project-chart/templates/project.yaml
 apiVersion: kargo.akuity.io/v1alpha1
@@ -200,6 +207,7 @@ spec:
         - uses: git-push
           config:
             path: ./repo
+
 ---
 # Source: kargo-project-chart/templates/stages.yaml
 apiVersion: kargo.akuity.io/v1alpha1
@@ -275,7 +283,8 @@ spec:
         imageSelectionStrategy: SemVer
         discoveryLimit: 50
         strictSemvers: true
-        allowTags: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        allowTagsRegexes:
+          - "^[0-9]+\\.[0-9]+\\.[0-9]+$"
     - chart:
         repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
         semverConstraint: ">=0.0.0"
@@ -283,8 +292,10 @@ spec:
     - git:
         repoURL: https://github.com/Fomiller/flake-hub.git
         commitSelectionStrategy: NewestTag
-        allowTags: "^v?[0-9]+\\.[0-9]+\\.[0-9]+$"
+        allowTagsRegexes:
+          - "^v?[0-9]+\\.[0-9]+\\.[0-9]+$"
         discoveryLimit: 50
+
 ---
 # Source: kargo-project-chart/templates/warehouses.yaml
 apiVersion: kargo.akuity.io/v1alpha1
@@ -301,7 +312,8 @@ spec:
         imageSelectionStrategy: SemVer
         discoveryLimit: 50
         strictSemvers: true
-        allowTags: "^[0-9]+\\.[0-9]+\\.[0-9]+-rc[0-9]+$"
+        allowTagsRegexes:
+          - "^[0-9]+\\.[0-9]+\\.[0-9]+-rc[0-9]+$"
     - chart:
         repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/charts/kargo-project-chart
         semverConstraint: ">=0.0.0-0"
@@ -309,5 +321,6 @@ spec:
     - git:
         repoURL: https://github.com/Fomiller/flake-hub.git
         commitSelectionStrategy: NewestTag
-        allowTags: "^v?[0-9]+\\.[0-9]+\\.[0-9]+-rc[0-9]+$"
+        allowTagsRegexes:
+          - "^v?[0-9]+\\.[0-9]+\\.[0-9]+-rc[0-9]+$"
         discoveryLimit: 50
