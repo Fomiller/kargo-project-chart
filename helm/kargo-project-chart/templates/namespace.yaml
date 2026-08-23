@@ -1,6 +1,12 @@
 {{- /*
 Kargo adopts a namespace carrying this label rather than creating one itself.
 The sync-wave puts it ahead of the Project so Argo CD can't race the adoption.
+
+A project that shares its namespace with the workload it promotes needs that
+namespace's other labels here too. Argo CD's managedNamespaceMetadata only
+applies to a namespace it creates itself, and this manifest is what it applies
+instead, so anything selecting on the namespace has to be named in
+project.namespaceLabels.
 */ -}}
 apiVersion: v1
 kind: Namespace
@@ -8,5 +14,8 @@ metadata:
   name: {{ include "kargo-project-chart.namespace" . }}
   labels:
     kargo.akuity.io/project: "true"
+    {{- with .Values.project.namespaceLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
