@@ -121,10 +121,14 @@ channels:
     image: '^[0-9]+\.[0-9]+\.[0-9]+$'
     chart: '>=0.0.0'
     git: '^v?[0-9]+\.[0-9]+\.[0-9]+$'
+  # The dot in `-rc.1` is optional here because both spellings exist in the
+  # wild. gh-actions publishes `-rc.1`, where the numeric identifier compares
+  # numerically, so rc.10 outranks rc.9; `-rc10` and `-rc9` are one
+  # alphanumeric identifier and sort backwards at the tenth candidate.
   rc:
-    image: '^[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$'
+    image: '^[0-9]+\.[0-9]+\.[0-9]+-rc\.?[0-9]+$'
     chart: '>=0.0.0-0'
-    git: '^v?[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$'
+    git: '^v?[0-9]+\.[0-9]+\.[0-9]+-rc\.?[0-9]+$'
 
 # Regex a tag/version must match to count as a prerelease for `stages[].blockPrerelease`.
 # Evaluated by Kargo (Go regexp) through the expression language's `matches`, not by Helm.
