@@ -1,0 +1,43 @@
+# One stage reading both channels of one warehouse. Pins the shape a manual
+# stage needs: two requestedFreight entries from the same warehouse, and one
+# origin-guarded yaml-update per entry writing the same file. `autoPromotion` is
+# absent because the chart rejects it here — auto-promotion runs per origin, so
+# two origins would take turns overwriting that file.
+project:
+  name: gadget
+  repoURL: https://github.com/Fomiller/homelab.git
+
+services:
+  - name: gadget-api
+    image:
+      repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
+      imageSelectionStrategy: SemVer
+      strictSemvers: true
+
+charts:
+  - name: gadget-chart
+    chart:
+      repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-chart
+
+warehouses:
+  - name: release
+    interval: 5m0s
+    services: all
+    charts: all
+    channels: [release, rc]
+    updatePaths:
+      - path: values.app.yaml
+        updates:
+          - { key: image.tag, source: gadget-api }
+      - path: kustomization.yaml
+        updates:
+          - { key: helmCharts.0.version, source: gadget-chart }
+
+stages:
+  - name: dev
+    channels: [release, rc]
+    color: green
+    warehouses: [release]
+    overlayPath: k8s/apps/gadget/overlays/dev
+    env: dev
+    git: { branch: main }

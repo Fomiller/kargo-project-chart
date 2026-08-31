@@ -48,6 +48,26 @@ Renders nothing.
       {{- fail (printf "stage %q references warehouse %q, which is not defined in warehouses[]" $stage.name .) -}}
     {{- end -}}
   {{- end -}}
+  {{- if and $stage.channel $stage.channels -}}
+    {{- fail (printf "stage %q sets both `channel` and `channels`; use `channels` for more than one" $stage.name) -}}
+  {{- end -}}
+  {{- /* Auto-promotion runs independently per freight request, so a stage that
+         requested two origins would promote the newest of each and they would
+         take turns overwriting the same file forever. */ -}}
+  {{- if $stage.autoPromotion -}}
+    {{- $originCount := 0 -}}
+    {{- range $whName := $stage.warehouses -}}
+      {{- range $.Values.warehouses -}}
+        {{- if eq .name $whName -}}
+          {{- $o := include "kargo-project-chart.stageOrigins" (dict "root" $ "stage" $stage "warehouse" .) | fromJsonArray -}}
+          {{- $originCount = add $originCount (len $o) -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{- if gt $originCount 1 -}}
+      {{- fail (printf "stage %q reads %d freight origins and sets `autoPromotion`; auto-promotion runs per origin, so they would overwrite each other. Promote this stage by hand." $stage.name $originCount) -}}
+    {{- end -}}
+  {{- end -}}
   {{- if $stage.upstream -}}
     {{- $upstreamNames := list -}}
     {{- range $.Values.stages -}}{{- $upstreamNames = append $upstreamNames .name -}}{{- end -}}
