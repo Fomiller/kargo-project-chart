@@ -7,17 +7,19 @@
 {{- $argocd := $stage.argocd | default dict -}}
 {{- $repoURL := $git.repoURL | default $project.repoURL -}}
 {{- /*
-  Resolve each of the stage's warehouses to the freight ORIGIN it reads: the
-  warehouse's rendered name for the channel this stage selected. Every
-  `ctx.targetFreight.origin.name` guard and `warehouse()` lookup below keys off
-  this, not the logical warehouse name.
+  Expand the stage's warehouses into one freight request per ORIGIN it reads: the
+  warehouse's rendered name for each channel this stage selected. A stage reading
+  two channels of one warehouse gets two requests, so this is a list of pairs
+  rather than a map keyed by warehouse. Every `ctx.targetFreight.origin.name`
+  guard and `warehouse()` lookup below keys off the origin, not the logical
+  warehouse name.
 */ -}}
-{{- $originByWh := dict -}}
-{{- $origins := list -}}
+{{- $freightReqs := list -}}
 {{- range $whName := $stage.warehouses -}}
-{{- $origin := include "kargo-project-chart.stageOrigin" (dict "root" $ "stage" $stage "warehouse" (index $whByName $whName)) -}}
-{{- $_ := set $originByWh $whName $origin -}}
-{{- $origins = append $origins $origin -}}
+{{- $wh := index $whByName $whName -}}
+{{- range $origin := (include "kargo-project-chart.stageOrigins" (dict "root" $ "stage" $stage "warehouse" $wh) | fromJsonArray) -}}
+{{- $freightReqs = append $freightReqs (dict "wh" $wh "origin" $origin) -}}
+{{- end -}}
 {{- end }}
 ---
 apiVersion: kargo.akuity.io/v1alpha1
@@ -31,10 +33,10 @@ metadata:
   {{- end }}
 spec:
   requestedFreight:
-    {{- range $whName := $stage.warehouses }}
+    {{- range $req := $freightReqs }}
     - origin:
         kind: Warehouse
-        name: {{ index $originByWh $whName }}
+        name: {{ $req.origin }}
       sources:
         {{- if $stage.upstream }}
         stages:
@@ -67,9 +69,9 @@ spec:
           first, so a blocked promotion aborts before anything is cloned or written.
         */}}
         {{- if $stage.blockPrerelease }}
-        {{- range $whName := $stage.warehouses }}
-        {{- $wh := index $whByName $whName }}
-        {{- $origin := index $originByWh $whName }}
+        {{- range $req := $freightReqs }}
+        {{- $wh := $req.wh }}
+        {{- $origin := $req.origin }}
         {{- $seen := dict }}
         {{- range $u := ($wh.updatePaths | default list) }}
         {{- range $upd := $u.updates }}
@@ -98,9 +100,9 @@ spec:
           is what keeps a stage a small env binding. Each step is guarded to the warehouse
           that owns it, so only the in-flight freight's files get written.
         */}}
-        {{- range $whName := $stage.warehouses }}
-        {{- $wh := index $whByName $whName }}
-        {{- $origin := index $originByWh $whName }}
+        {{- range $req := $freightReqs }}
+        {{- $wh := $req.wh }}
+        {{- $origin := $req.origin }}
         {{- range $u := ($wh.updatePaths | default list) }}
         {{- $path := "" }}
         {{- if $u.rootRelative }}

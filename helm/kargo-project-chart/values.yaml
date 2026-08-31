@@ -291,6 +291,16 @@ warehouses: []
 #                   read the primary channel. Required when a stage's warehouse declares
 #                   channels but none is primary. Setting it on a stage whose warehouse
 #                   declares no channels is an error.
+#   channels      - optional list, for a stage that reads MORE THAN ONE channel of the
+#                   same warehouse: one requestedFreight entry per channel, and one
+#                   origin-guarded set of updatePaths per entry. Use it when one
+#                   environment should accept either lane — a stage that normally runs
+#                   releases but can also take a candidate on demand.
+#
+#                   Mutually exclusive with `channel`. Cannot be combined with
+#                   `autoPromotion`: auto-promotion runs independently per origin, so two
+#                   origins would each promote their newest freight and take turns
+#                   overwriting the same file. A multi-channel stage is promoted by hand.
 #   blockPrerelease - optional bool. When true, the promotion aborts (via a `fail` step,
 #                   before anything is cloned or written) if the in-flight freight's
 #                   tag/version matches `prereleasePattern`. Prerelease freight still
@@ -324,6 +334,17 @@ warehouses: []
 #   - name: dev-rc                   # RC lane into the same cluster, promoted by hand
 #     channel: rc
 #     color: orange
+#     warehouses: [app]
+#     overlayPath: k8s/apps/my-service/overlays/dev
+#     env: dev
+#     git: { repoURL: https://github.com/Fomiller/homelab.git, branch: main }
+#
+# The same environment as ONE stage taking either lane. No autoPromotion, so every
+# release is a click too — the trade for one honest lane instead of two stages
+# writing one file:
+#   - name: dev
+#     color: purple
+#     channels: [release, rc]
 #     warehouses: [app]
 #     overlayPath: k8s/apps/my-service/overlays/dev
 #     env: dev

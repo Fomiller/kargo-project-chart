@@ -1,0 +1,241 @@
+---
+# Source: kargo-project-chart/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gadget
+  labels:
+    kargo.akuity.io/project: "true"
+    fomiller.dev/ecr-pull: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+
+---
+# Source: kargo-project-chart/templates/credentials.yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: kargo-ecr-chart-credentials
+  namespace: gadget
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: ecr-token-clustersecretstore
+  target:
+    name: kargo-ecr-chart-credentials
+    creationPolicy: Owner
+    template:
+      engineVersion: v2
+      metadata:
+        labels:
+          kargo.akuity.io/cred-type: helm
+      data:
+        repoURL: "^oci://695434033664\\.dkr\\.ecr\\.us-east-1\\.amazonaws\\.com/.*$"
+        repoURLIsRegex: "true"
+        password: "{{ .password }}"
+        username: "{{ .username }}"
+  dataFrom:
+    - extract:
+        key: ecr-token
+
+---
+# Source: kargo-project-chart/templates/credentials.yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: kargo-ecr-image-credentials
+  namespace: gadget
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: ecr-token-clustersecretstore
+  target:
+    name: kargo-ecr-image-credentials
+    creationPolicy: Owner
+    template:
+      engineVersion: v2
+      metadata:
+        labels:
+          kargo.akuity.io/cred-type: image
+      data:
+        repoURL: "^695434033664\\.dkr\\.ecr\\.us-east-1\\.amazonaws\\.com/.*$"
+        repoURLIsRegex: "true"
+        password: "{{ .password }}"
+        username: "{{ .username }}"
+  dataFrom:
+    - extract:
+        key: ecr-token
+
+---
+# Source: kargo-project-chart/templates/credentials.yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: kargo-git-credentials
+  namespace: gadget
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: doppler-kargo-clustersecretstore
+  target:
+    name: kargo-git-credentials
+    creationPolicy: Owner
+    template:
+      engineVersion: v2
+      metadata:
+        labels:
+          kargo.akuity.io/cred-type: git
+      data:
+        repoURL: "^https://github\\.com/Fomiller/.*$"
+        repoURLIsRegex: "true"
+        githubAppID: "{{ .KARGO_BOT_APP_ID }}"
+        githubAppInstallationID: "{{ .KARGO_BOT_INSTALLATION_ID }}"
+        githubAppPrivateKey: "{{ .KARGO_BOT_PRIVATE_KEY }}"
+  data:
+    - secretKey: KARGO_BOT_APP_ID
+      remoteRef:
+        key: KARGO_BOT_APP_ID
+    - secretKey: KARGO_BOT_INSTALLATION_ID
+      remoteRef:
+        key: KARGO_BOT_INSTALLATION_ID
+    - secretKey: KARGO_BOT_PRIVATE_KEY
+      remoteRef:
+        key: KARGO_BOT_PRIVATE_KEY
+
+---
+# Source: kargo-project-chart/templates/project.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Project
+metadata:
+  name: gadget
+
+---
+# Source: kargo-project-chart/templates/project.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: ProjectConfig
+metadata:
+  name: gadget
+  namespace: gadget
+spec:
+  promotionPolicies:
+
+---
+# Source: kargo-project-chart/templates/stages.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: dev
+  namespace: gadget
+  annotations:
+    kargo.akuity.io/color: green
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: release
+      sources:
+        direct: true
+    - origin:
+        kind: Warehouse
+        name: release-rc
+      sources:
+        direct: true
+  promotionTemplate:
+    spec:
+      vars:
+        - name: image_gadget_api
+          value: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
+        - name: chart_gadget_chart
+          value: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-chart
+      steps:
+        - uses: git-clone
+          config:
+            repoURL: https://github.com/Fomiller/homelab.git
+            checkout:
+              - branch: main
+                path: ./repo
+        - uses: yaml-update
+          if: ${{ ctx.targetFreight.origin.name == 'release' }}
+          config:
+            path: ./repo/k8s/apps/gadget/overlays/dev/values.app.yaml
+            updates:
+              - key: image.tag
+                value: ${{ imageFrom(vars.image_gadget_api, warehouse('release')).Tag + '@' + imageFrom(vars.image_gadget_api, warehouse('release')).Digest }}
+        - uses: yaml-update
+          if: ${{ ctx.targetFreight.origin.name == 'release' }}
+          config:
+            path: ./repo/k8s/apps/gadget/overlays/dev/kustomization.yaml
+            updates:
+              - key: helmCharts.0.version
+                value: ${{ chartFrom(vars.chart_gadget_chart, warehouse('release')).Version }}
+        - uses: yaml-update
+          if: ${{ ctx.targetFreight.origin.name == 'release-rc' }}
+          config:
+            path: ./repo/k8s/apps/gadget/overlays/dev/values.app.yaml
+            updates:
+              - key: image.tag
+                value: ${{ imageFrom(vars.image_gadget_api, warehouse('release-rc')).Tag + '@' + imageFrom(vars.image_gadget_api, warehouse('release-rc')).Digest }}
+        - uses: yaml-update
+          if: ${{ ctx.targetFreight.origin.name == 'release-rc' }}
+          config:
+            path: ./repo/k8s/apps/gadget/overlays/dev/kustomization.yaml
+            updates:
+              - key: helmCharts.0.version
+                value: ${{ chartFrom(vars.chart_gadget_chart, warehouse('release-rc')).Version }}
+        - uses: git-commit
+          as: commit
+          config:
+            path: ./repo
+            message: promote ${{ ctx.targetFreight.name }} to dev
+        - uses: git-push
+          config:
+            path: ./repo
+
+---
+# Source: kargo-project-chart/templates/warehouses.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: release
+  namespace: gadget
+spec:
+  freightCreationPolicy: Automatic
+  interval: 5m0s
+  subscriptions:
+    - image:
+        repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
+        imageSelectionStrategy: SemVer
+        discoveryLimit: 20
+        strictSemvers: true
+        allowTagsRegexes:
+          - "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    - chart:
+        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-chart
+        semverConstraint: ">=0.0.0"
+        discoveryLimit: 20
+
+---
+# Source: kargo-project-chart/templates/warehouses.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: release-rc
+  namespace: gadget
+spec:
+  freightCreationPolicy: Automatic
+  interval: 5m0s
+  subscriptions:
+    - image:
+        repoURL: 695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-api
+        imageSelectionStrategy: SemVer
+        discoveryLimit: 20
+        strictSemvers: true
+        allowTagsRegexes:
+          - "^[0-9]+\\.[0-9]+\\.[0-9]+-rc\\.?[0-9]+$"
+    - chart:
+        repoURL: oci://695434033664.dkr.ecr.us-east-1.amazonaws.com/gadget-chart
+        semverConstraint: ">=0.0.0-0"
+        discoveryLimit: 20

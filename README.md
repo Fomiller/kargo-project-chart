@@ -54,6 +54,19 @@ history, and each auto-promoting stage then immediately promotes the newest
 freight it finds from the new origin. Adopting channels on a live project has to
 leave the existing name alone and only add the new ones.
 
+A stage reads its warehouses' primary channel unless it says otherwise. `channel`
+picks a different one; `channels` takes several, giving the stage one
+`requestedFreight` entry and one guarded set of `updatePaths` per channel. The two
+are mutually exclusive.
+
+`channels` is how one environment accepts either lane. The cost is that it cannot
+auto-promote: auto-promotion runs independently per origin, so a stage holding two
+would promote the newest of each and they would take turns overwriting the same
+file. The chart rejects that combination rather than letting it flap. Two stages
+writing one overlay is the alternative — it keeps auto-promotion on the release
+lane, at the price of a stage whose status claims freight that is not what is
+running.
+
 ## Development
 
 ```sh

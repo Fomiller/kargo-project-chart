@@ -50,39 +50,48 @@ Input: dict with `base` (warehouse name), `channel` (may be ""), and `channels`
 {{- end -}}
 
 {{/*
-The freight origin a stage reads from a given warehouse — that warehouse's
-rendered name for the channel the stage selected. Validates the pairing, since a
+The freight origins a stage reads from a given warehouse — that warehouse's
+rendered name for each channel the stage selected. Validates the pairing, since a
 stage naming a channel its warehouse doesn't render would silently request
 freight from an origin that does not exist.
 
+A stage selects channels with `channels` (a list) or `channel` (one name), and
+falls back to the warehouse's primary channel when it sets neither.
+
 Input: dict with `root` ($), `stage`, and `warehouse` (the warehouse object).
+Output: a JSON array of rendered warehouse names, in the order the stage asked.
 */}}
-{{- define "kargo-project-chart.stageOrigin" -}}
+{{- define "kargo-project-chart.stageOrigins" -}}
 {{- $channels := .root.Values.channels | default dict -}}
 {{- $wh := .warehouse -}}
 {{- $whChannels := $wh.channels | default list -}}
-{{- $stageChan := .stage.channel | default "" -}}
+{{- $stageChans := .stage.channels | default list -}}
+{{- if .stage.channel -}}{{- $stageChans = list .stage.channel -}}{{- end -}}
+{{- $origins := list -}}
 {{- if not $whChannels -}}
-  {{- if $stageChan -}}
-    {{- fail (printf "stage %q sets channel %q, but warehouse %q declares no channels" .stage.name $stageChan $wh.name) -}}
+  {{- if $stageChans -}}
+    {{- fail (printf "stage %q sets channel %v, but warehouse %q declares no channels" .stage.name $stageChans $wh.name) -}}
   {{- end -}}
-  {{- $wh.name -}}
+  {{- $origins = list $wh.name -}}
 {{- else -}}
-  {{- $chan := $stageChan -}}
-  {{- if not $chan -}}
+  {{- if not $stageChans -}}
     {{- range $whChannels -}}
       {{- if hasKey $channels . -}}
-        {{- if (index $channels .).primary -}}{{- $chan = . -}}{{- end -}}
+        {{- if (index $channels .).primary -}}{{- $stageChans = list . -}}{{- end -}}
       {{- end -}}
     {{- end -}}
-    {{- if not $chan -}}
+    {{- if not $stageChans -}}
       {{- fail (printf "warehouse %q declares channels %v but none is primary, so stage %q must set `channel`" $wh.name $whChannels .stage.name) -}}
     {{- end -}}
-  {{- else if not (has $chan $whChannels) -}}
-    {{- fail (printf "stage %q requests channel %q from warehouse %q, which only declares %v" .stage.name $chan $wh.name $whChannels) -}}
   {{- end -}}
-  {{- include "kargo-project-chart.warehouseName" (dict "base" $wh.name "channel" $chan "channels" $channels) -}}
+  {{- range $chan := $stageChans -}}
+    {{- if not (has $chan $whChannels) -}}
+      {{- fail (printf "stage %q requests channel %q from warehouse %q, which only declares %v" $.stage.name $chan $wh.name $whChannels) -}}
+    {{- end -}}
+    {{- $origins = append $origins (include "kargo-project-chart.warehouseName" (dict "base" $wh.name "channel" $chan "channels" $channels)) -}}
+  {{- end -}}
 {{- end -}}
+{{- $origins | toJson -}}
 {{- end -}}
 
 {{/*
